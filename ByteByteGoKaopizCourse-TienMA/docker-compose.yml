@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Nginx Load Balancer
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - fastapi_server_1
+      - fastapi_server_2
+      - fastapi_server_3
+    networks:
+      - load_balancer_network
+
+  # FastAPI Server 1
+  fastapi_server_1:
+    build: ./app
+    environment:
+      - SERVER_ID=server-1
+      - PORT=8000
+    expose:
+      - "8000"
+    networks:
+      - load_balancer_network
+
+  # FastAPI Server 2
+  fastapi_server_2:
+    build: ./app
+    environment:
+      - SERVER_ID=server-2
+      - PORT=8000
+    expose:
+      - "8000"
+    networks:
+      - load_balancer_network
+
+  # FastAPI Server 3
+  fastapi_server_3:
+    build: ./app
+    environment:
+      - SERVER_ID=server-3
+      - PORT=8000
+    expose:
+      - "8000"
+    networks:
+      - load_balancer_network
+
+networks:
+  load_balancer_network:
+    driver: bridge 
