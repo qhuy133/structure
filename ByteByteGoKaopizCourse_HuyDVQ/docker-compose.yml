@@ -1,0 +1,103 @@
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: loadbalancer_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app_network
+
+  # Backend Server 1
+  backend1:
+    build: ./backend
+    container_name: backend_server_1
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: loadbalancer_db
+      SERVER_ID: 1
+    ports:
+      - "3001:3000"
+    depends_on:
+      - mysql
+    networks:
+      - app_network
+
+  # Backend Server 2
+  backend2:
+    build: ./backend
+    container_name: backend_server_2
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: loadbalancer_db
+      SERVER_ID: 2
+    ports:
+      - "3002:3000"
+    depends_on:
+      - mysql
+    networks:
+      - app_network
+
+  # Backend Server 3
+  backend3:
+    build: ./backend
+    container_name: backend_server_3
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: loadbalancer_db
+      SERVER_ID: 3
+    ports:
+      - "3003:3000"
+    depends_on:
+      - mysql
+    networks:
+      - app_network
+
+  # Frontend Nginx
+  frontend:
+    build: ./frontend
+    container_name: frontend_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - loadbalancer
+    networks:
+      - app_network
+
+  # Load Balancer Nginx
+  loadbalancer:
+    build: ./loadbalancer
+    container_name: loadbalancer_nginx
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend1
+      - backend2
+      - backend3
+    networks:
+      - app_network
+
+volumes:
+  mysql_data:
+
+networks:
+  app_network:
+    driver: bridge

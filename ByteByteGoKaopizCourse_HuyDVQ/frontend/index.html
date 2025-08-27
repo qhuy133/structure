@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Load Balancer Demo</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Load Balancer Demo</h1>
+
+      <div class="button-container">
+        <button id="requestBtn" onclick="makeRequest()">Send Request</button>
+      </div>
+
+      <div class="response-container">
+        <h3>Response:</h3>
+        <div id="response" class="response-box">
+          <p>Click the button above to send a request</p>
+        </div>
+      </div>
+
+      <div class="stats-container">
+        <h3>Request Statistics:</h3>
+        <div id="stats" class="stats-box">
+          <p>Loading statistics...</p>
+        </div>
+      </div>
+
+      <div class="server-info">
+        <h3>Server Information:</h3>
+        <div class="server-grid">
+          <div class="server-card">
+            <h4>Backend Server 1</h4>
+            <p>Port: 3001</p>
+            <p>Status: <span id="server1-status">Checking...</span></p>
+          </div>
+          <div class="server-card">
+            <h4>Backend Server 2</h4>
+            <p>Port: 3002</p>
+            <p>Status: <span id="server2-status">Checking...</span></p>
+          </div>
+          <div class="server-card">
+            <h4>Backend Server 3</h4>
+            <p>Port: 3003</p>
+            <p>Status: <span id="server3-status">Checking...</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
