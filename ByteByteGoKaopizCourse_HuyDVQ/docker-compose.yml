@@ -1,19 +1,70 @@
-
 services:
-  # MySQL Database
-  mysql:
+  # MySQL Master Database
+  mysql-master:
     image: mysql:8.0
-    container_name: mysql_db
+    container_name: mysql_master
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: loadbalancer_db
       MYSQL_USER: user
       MYSQL_PASSWORD: password
+      MYSQL_REPLICATION_USER: replicator
+      MYSQL_REPLICATION_PASSWORD: replicator_password
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_master_data:/var/lib/mysql
+      - ./mysql/master/my.cnf:/etc/mysql/my.cnf
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW --gtid-mode=ON --enforce-gtid-consistency=ON
+    networks:
+      - app_network
+
+  # MySQL Slave 1
+  mysql-slave1:
+    image: mysql:8.0
+    container_name: mysql_slave1
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: loadbalancer_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_MASTER_HOST: mysql-master
+      MYSQL_MASTER_USER: replicator
+      MYSQL_MASTER_PASSWORD: replicator_password
+      MYSQL_MASTER_PORT: 3306
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_slave1_data:/var/lib/mysql
+      - ./mysql/slave1/my.cnf:/etc/mysql/my.cnf
+    command: --server-id=2 --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
+    depends_on:
+      - mysql-master
+    networks:
+      - app_network
+
+  # MySQL Slave 2
+  mysql-slave2:
+    image: mysql:8.0
+    container_name: mysql_slave2
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: loadbalancer_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_MASTER_HOST: mysql-master
+      MYSQL_MASTER_USER: replicator
+      MYSQL_MASTER_PASSWORD: replicator_password
+      MYSQL_MASTER_PORT: 3306
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_slave2_data:/var/lib/mysql
+      - ./mysql/slave2/my.cnf:/etc/mysql/my.cnf
+    command: --server-id=3 --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
+    depends_on:
+      - mysql-master
     networks:
       - app_network
 
@@ -23,7 +74,11 @@ services:
     container_name: backend_server_1
     environment:
       NODE_ENV: production
-      DB_HOST: mysql
+      # Master DB for WRITE operations
+      DB_MASTER_HOST: mysql-master
+      # Slave DBs for READ operations
+      DB_SLAVE1_HOST: mysql-slave1
+      DB_SLAVE2_HOST: mysql-slave2
       DB_USER: user
       DB_PASSWORD: password
       DB_NAME: loadbalancer_db
@@ -31,7 +86,9 @@ services:
     ports:
       - "3001:3000"
     depends_on:
-      - mysql
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
     networks:
       - app_network
 
@@ -41,7 +98,11 @@ services:
     container_name: backend_server_2
     environment:
       NODE_ENV: production
-      DB_HOST: mysql
+      # Master DB for WRITE operations
+      DB_MASTER_HOST: mysql-master
+      # Slave DBs for READ operations
+      DB_SLAVE1_HOST: mysql-slave1
+      DB_SLAVE2_HOST: mysql-slave2
       DB_USER: user
       DB_PASSWORD: password
       DB_NAME: loadbalancer_db
@@ -49,7 +110,9 @@ services:
     ports:
       - "3002:3000"
     depends_on:
-      - mysql
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
     networks:
       - app_network
 
@@ -59,7 +122,11 @@ services:
     container_name: backend_server_3
     environment:
       NODE_ENV: production
-      DB_HOST: mysql
+      # Master DB for WRITE operations
+      DB_MASTER_HOST: mysql-master
+      # Slave DBs for READ operations
+      DB_SLAVE1_HOST: mysql-slave1
+      DB_SLAVE2_HOST: mysql-slave2
       DB_USER: user
       DB_PASSWORD: password
       DB_NAME: loadbalancer_db
@@ -67,7 +134,9 @@ services:
     ports:
       - "3003:3000"
     depends_on:
-      - mysql
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
     networks:
       - app_network
 
@@ -96,8 +165,11 @@ services:
       - app_network
 
 volumes:
-  mysql_data:
+  mysql_master_data:
+  mysql_slave1_data:
+  mysql_slave2_data:
 
 networks:
   app_network:
     driver: bridge
+
