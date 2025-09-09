@@ -1,3 +1,6 @@
+// Configuration - Thay đổi BASE_URL để kết nối tới server khác
+const BASE_URL = 'http://172.20.77.184:8090';
+
 // Global variables
 let requestStats = {
     total: 0,
@@ -7,9 +10,9 @@ let requestStats = {
 };
 
 let serverEndpoints = [
-    'http://localhost:8090/health',
-    'http://localhost:8090/api/',
-    'http://localhost:8090/api/users'
+    `${BASE_URL}/health`,
+    `${BASE_URL}/api/`,
+    `${BASE_URL}/api/users`
 ];
 
 // Initialize the dashboard
@@ -148,7 +151,7 @@ async function checkServerStatus() {
     
     for (let i = 0; i < endpoints.length; i++) {
         const endpoint = endpoints[i];
-        const result = await makeApiRequest(`http://localhost:8090${endpoint.url}`);
+        const result = await makeApiRequest(`${BASE_URL}${endpoint.url}`);
         
         const serverCard = document.createElement('div');
         serverCard.className = `server-card ${result.success ? 'healthy' : 'unhealthy'} fade-in`;
@@ -221,7 +224,7 @@ async function loadUsers() {
     showLoading();
     addLogEntry('info', 'Loading users data...');
     
-    const result = await makeApiRequest('http://localhost:8090/api/users');
+    const result = await makeApiRequest(`${BASE_URL}/api/users`);
     const dataDisplay = document.getElementById('dataDisplay');
     
     if (result.success) {
@@ -258,7 +261,7 @@ async function testSlowEndpoint() {
     showLoading();
     addLogEntry('info', 'Testing slow endpoint...');
     
-    const result = await makeApiRequest('http://localhost:8090/api/slow');
+    const result = await makeApiRequest(`${BASE_URL}/api/slow`);
     const dataDisplay = document.getElementById('dataDisplay');
     
     if (result.success) {
@@ -300,7 +303,7 @@ async function loadMultipleRequests() {
     
     // Make 10 concurrent requests
     for (let i = 0; i < 10; i++) {
-        requests.push(makeApiRequest('http://localhost:8090/api/'));
+        requests.push(makeApiRequest(`${BASE_URL}/api/`));
     }
     
     try {

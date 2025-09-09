@@ -14,75 +14,81 @@
             <p>Monitoring and Testing Backend Services</p>
         </header>
 
-        <!-- Server Status Section -->
-        <section class="status-section">
-            <h2><i class="fas fa-server"></i> Server Status</h2>
-            <div class="server-grid" id="serverGrid">
-                <!-- Server status cards will be dynamically generated here -->
+        <div class="dashboard-grid">
+            <div class="main-sections">
+                <!-- Server Status Section -->
+                <section class="status-section">
+                    <h2><i class="fas fa-server"></i> Server Status</h2>
+                    <div class="server-grid" id="serverGrid">
+                        <!-- Server status cards will be dynamically generated here -->
+                    </div>
+                    <div class="controls">
+                        <button class="btn btn-primary" onclick="checkServerStatus()">
+                            <i class="fas fa-sync-alt"></i> Refresh Status
+                        </button>
+                    </div>
+                </section>
             </div>
-            <div class="controls">
-                <button class="btn btn-primary" onclick="checkServerStatus()">
-                    <i class="fas fa-sync-alt"></i> Refresh Status
-                </button>
-            </div>
-        </section>
 
-        <!-- Data Loading Section -->
-        <section class="data-section">
-            <h2><i class="fas fa-database"></i> Data Loading</h2>
-            <div class="controls">
-                <button class="btn btn-success" onclick="loadUsers()">
-                    <i class="fas fa-users"></i> Load Users Data
-                </button>
-                <button class="btn btn-warning" onclick="testSlowEndpoint()">
-                    <i class="fas fa-clock"></i> Test Slow Endpoint
-                </button>
-                <button class="btn btn-info" onclick="loadMultipleRequests()">
-                    <i class="fas fa-bolt"></i> Multiple Requests Test
-                </button>
+            <div class="sidebar-sections">
+                <!-- Data Loading Section -->
+                <section class="data-section">
+                    <h2><i class="fas fa-database"></i> Data Loading</h2>
+                    <div class="controls">
+                        <button class="btn btn-success" onclick="loadUsers()">
+                            <i class="fas fa-users"></i> Load Users Data
+                        </button>
+                        <button class="btn btn-warning" onclick="testSlowEndpoint()">
+                            <i class="fas fa-clock"></i> Test Slow Endpoint
+                        </button>
+                        <button class="btn btn-info" onclick="loadMultipleRequests()">
+                            <i class="fas fa-bolt"></i> Multiple Requests Test
+                        </button>
+                    </div>
+                    
+                    <div class="data-display" id="dataDisplay">
+                        <div class="placeholder">
+                            <i class="fas fa-arrow-up"></i>
+                            <p>Click buttons above to load data from backend</p>
+                        </div>
+                    </div>
+                </section>
             </div>
-            
-            <div class="data-display" id="dataDisplay">
-                <div class="placeholder">
-                    <i class="fas fa-arrow-up"></i>
-                    <p>Click buttons above to load data from backend</p>
-                </div>
-            </div>
-        </section>
 
-        <!-- Request Statistics -->
-        <section class="stats-section">
-            <h2><i class="fas fa-chart-bar"></i> Request Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="totalRequests">0</div>
-                    <div class="stat-label">Total Requests</div>
+            <!-- Request Statistics -->
+            <section class="stats-section">
+                <h2><i class="fas fa-chart-bar"></i> Request Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalRequests">0</div>
+                        <div class="stat-label">Total Requests</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="successfulRequests">0</div>
+                        <div class="stat-label">Successful</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="failedRequests">0</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgResponseTime">0ms</div>
+                        <div class="stat-label">Avg Response Time</div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="successfulRequests">0</div>
-                    <div class="stat-label">Successful</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="failedRequests">0</div>
-                    <div class="stat-label">Failed</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="avgResponseTime">0ms</div>
-                    <div class="stat-label">Avg Response Time</div>
-                </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Activity Log -->
-        <section class="log-section">
-            <h2><i class="fas fa-list"></i> Activity Log</h2>
-            <div class="log-container" id="logContainer">
-                <div class="log-placeholder">Activity will appear here...</div>
-            </div>
-            <button class="btn btn-secondary" onclick="clearLog()">
-                <i class="fas fa-trash"></i> Clear Log
-            </button>
-        </section>
+            <!-- Activity Log -->
+            <section class="log-section">
+                <h2><i class="fas fa-list"></i> Activity Log</h2>
+                <div class="log-container" id="logContainer">
+                    <div class="log-placeholder">Activity will appear here...</div>
+                </div>
+                <button class="btn btn-secondary" onclick="clearLog()">
+                    <i class="fas fa-trash"></i> Clear Log
+                </button>
+            </section>
+        </div>
     </div>
 
     <!-- Loading overlay -->
