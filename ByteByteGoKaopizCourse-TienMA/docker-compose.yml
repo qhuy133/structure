@@ -1,17 +1,19 @@
-version: '3.8'
-
 services:
-  # Nginx Load Balancer
+  # Nginx Load Balancer with Frontend
   nginx:
-    build: ./nginx
+    build: 
+      context: .
+      dockerfile: nginx/Dockerfile
     ports:
-      - "80:80"
+      - "8090:80"
     depends_on:
       - fastapi_server_1
       - fastapi_server_2
       - fastapi_server_3
     networks:
       - load_balancer_network
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
 
   # FastAPI Server 1
   fastapi_server_1:

@@ -7,14 +7,19 @@ Load Balancer là một thành phần quan trọng trong kiến trúc hệ thố
 ## Kiến trúc hệ thống
 
 ```
-Client Request
+Client Browser
       ↓
-  Nginx Load Balancer (Port 80)
+  Nginx Load Balancer (Port 8090)
       ↓
 ┌─────────────────────────────┐
-│ FastAPI Server 1 (Port 8001) │
-│ FastAPI Server 2 (Port 8002) │
-│ FastAPI Server 3 (Port 8003) │
+│ Frontend Dashboard (Static) │
+│ API Endpoints (/api/*)      │
+└─────────────────────────────┘
+      ↓
+┌─────────────────────────────┐
+│ FastAPI Server 1 (Internal) │
+│ FastAPI Server 2 (Internal) │
+│ FastAPI Server 3 (Internal) │
 └─────────────────────────────┘
 ```
 
@@ -26,11 +31,16 @@ load-balancer-demo/
 │   ├── main.py              # FastAPI application
 │   ├── requirements.txt     # Python dependencies
 │   └── Dockerfile          # Docker cho FastAPI
+├── frontend/
+│   ├── index.html          # Frontend Dashboard
+│   ├── styles.css          # CSS styling
+│   └── script.js           # JavaScript functionality
 ├── nginx/
 │   ├── nginx.conf          # Cấu hình Nginx
 │   └── Dockerfile          # Docker cho Nginx
 ├── docker-compose.yml      # Orchestration
 ├── test_load_balancer.py   # Script test
+├── start_with_frontend.sh  # Script khởi động với frontend
 └── README.md              # Hướng dẫn này
 ```
 
@@ -544,14 +554,79 @@ docker compose exec nginx ping fastapi_server_1
 docker compose exec nginx nginx -t
 ```
 
+## Frontend Dashboard
+
+Dự án bao gồm một giao diện web hiện đại để monitor và test hệ thống load balancer.
+
+### Tính năng Frontend
+
+1. **Server Status Monitor**
+   - Hiển thị trạng thái real-time của các backend servers
+   - Thông tin chi tiết về server ID, hostname, response time
+   - Status indicators với màu sắc trực quan
+
+2. **Data Loading Interface**
+   - Button load dữ liệu users từ API
+   - Test slow endpoint để kiểm tra performance
+   - Multiple requests test để kiểm tra load balancing
+
+3. **Request Statistics**
+   - Tracking tổng số requests
+   - Tỷ lệ successful/failed requests
+   - Average response time
+
+4. **Activity Log**
+   - Real-time logging của tất cả hoạt động
+   - Thông tin chi tiết về requests và responses
+   - Timestamp và log levels
+
+### Cách sử dụng Frontend
+
+1. **Khởi động với Frontend**
+```bash
+# Sử dụng script khởi động mới
+./start_with_frontend.sh
+
+# Hoặc sử dụng docker-compose trực tiếp
+docker-compose up --build
+```
+
+2. **Truy cập Dashboard**
+```
+Mở browser và truy cập: http://localhost:8090
+```
+
+3. **Keyboard Shortcuts**
+- `Ctrl + R`: Refresh server status
+- `Ctrl + U`: Load users data
+- `Ctrl + L`: Clear activity log
+
+### Endpoints
+
+- **Frontend Dashboard**: `http://localhost:8090`
+- **API Health Check**: `http://localhost:8090/health`
+- **Users API**: `http://localhost:8090/api/users`
+- **Slow Endpoint**: `http://localhost:8090/api/slow`
+- **Nginx Status**: `http://localhost:8090/nginx-status`
+
+### Features Highlights
+
+1. **Responsive Design**: Giao diện tự động điều chỉnh cho mobile và desktop
+2. **Real-time Updates**: Auto-refresh server status mỗi 30 giây
+3. **Modern UI**: Sử dụng gradients, animations, và glassmorphism design
+4. **CORS Support**: Full CORS configuration cho cross-origin requests
+5. **Error Handling**: Comprehensive error handling và user feedback
+
 ## Kết luận
 
 Hướng dẫn này đã cung cấp một hệ thống load balancer hoàn chỉnh với:
+- **Frontend Dashboard** hiện đại để monitoring và testing
 - Nginx làm reverse proxy và load balancer
 - Multiple FastAPI servers làm backend
 - Docker containerization
 - Health checks và monitoring
 - Testing scripts
 - Các thuật toán load balancing khác nhau
+- **CORS support** cho frontend integration
 
-Hệ thống này có thể được mở rộng và tùy chỉnh theo nhu cầu cụ thể của dự án.
+Hệ thống này có thể được mở rộng và tùy chỉnh theo nhu cầu cụ thể của dự án. Frontend dashboard cung cấp một cách trực quan và dễ sử dụng để monitor và test load balancer performance.

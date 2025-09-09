@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import socket
 import time
@@ -6,11 +7,20 @@ from datetime import datetime
 
 app = FastAPI(title="Load Balancer Demo API")
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
 # Lấy thông tin server
 SERVER_ID = os.getenv("SERVER_ID", "unknown")
 HOSTNAME = socket.gethostname()
 
-@app.get("/")
+@app.get("/api/")
 async def root():
     return {
         "message": "Hello from Load Balancer Demo!",
