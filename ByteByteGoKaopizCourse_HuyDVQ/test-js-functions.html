@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Test JavaScript Functions</title>
+  </head>
+  <body>
+    <h1>Test JavaScript Functions</h1>
+    <button onclick="testFunction()">Test Function</button>
+    <div id="result"></div>
+
+    <script>
+      function testFunction() {
+        document.getElementById("result").innerHTML = "Function works!";
+      }
+
+      // Test if testWriteOperation exists
+      window.onload = function () {
+        if (typeof testWriteOperation === "function") {
+          document.getElementById("result").innerHTML =
+            "testWriteOperation is defined!";
+        } else {
+          document.getElementById("result").innerHTML =
+            "testWriteOperation is NOT defined!";
+        }
+      };
+    </script>
+
+    <!-- Load the actual script -->
+    <script src="http://localhost/script.js"></script>
+
+    <script>
+      // Test again after loading
+      setTimeout(function () {
+        if (typeof testWriteOperation === "function") {
+          document.getElementById("result").innerHTML +=
+            "<br>After loading: testWriteOperation is defined!";
+        } else {
+          document.getElementById("result").innerHTML +=
+            "<br>After loading: testWriteOperation is NOT defined!";
+        }
+      }, 1000);
+    </script>
+  </body>
+</html>

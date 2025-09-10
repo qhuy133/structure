@@ -12,6 +12,24 @@
 
       <div class="button-container">
         <button id="requestBtn" onclick="makeRequest()">Send Request</button>
+        <button onclick="testWriteOperation()" style="background: #28a745">
+          Test Write (Master)
+        </button>
+        <button onclick="testReadOperation()" style="background: #17a2b8">
+          Test Read (Slave)
+        </button>
+        <button
+          onclick="testReplication()"
+          style="background: #ffc107; color: #000"
+        >
+          Test Replication
+        </button>
+        <button onclick="testLoadBalancing()" style="background: #6f42c1">
+          Test Load Balancing
+        </button>
+        <button onclick="runAllTests()" style="background: #dc3545">
+          Run All Tests
+        </button>
       </div>
 
       <div class="response-container">
@@ -25,6 +43,13 @@
         <h3>Request Statistics:</h3>
         <div id="stats" class="stats-box">
           <p>Loading statistics...</p>
+        </div>
+      </div>
+
+      <div class="test-results">
+        <h3>Master-Slave Test Results:</h3>
+        <div id="test-results" class="test-results-box">
+          <p>Click test buttons above to see results</p>
         </div>
       </div>
 
@@ -53,7 +78,45 @@
       </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
+
+    <!-- Debug script -->
+    <script>
+      // Debug function to check if test functions are loaded
+      window.addEventListener("load", function () {
+        console.log("Page loaded, checking functions...");
+
+        if (typeof testWriteOperation === "function") {
+          console.log("✅ testWriteOperation is defined");
+        } else {
+          console.log("❌ testWriteOperation is NOT defined");
+        }
+
+        if (typeof testReadOperation === "function") {
+          console.log("✅ testReadOperation is defined");
+        } else {
+          console.log("❌ testReadOperation is NOT defined");
+        }
+
+        if (typeof testReplication === "function") {
+          console.log("✅ testReplication is defined");
+        } else {
+          console.log("❌ testReplication is NOT defined");
+        }
+
+        if (typeof testLoadBalancing === "function") {
+          console.log("✅ testLoadBalancing is defined");
+        } else {
+          console.log("❌ testLoadBalancing is NOT defined");
+        }
+
+        if (typeof runAllTests === "function") {
+          console.log("✅ runAllTests is defined");
+        } else {
+          console.log("❌ runAllTests is NOT defined");
+        }
+      });
+    </script>
   </body>
 </html>
 

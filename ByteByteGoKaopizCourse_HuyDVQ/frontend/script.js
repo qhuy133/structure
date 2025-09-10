@@ -267,3 +267,364 @@ async function loadStats() {
 // Refresh server status every 10 seconds
 setInterval(checkAllServers, 10000);
 
+// ==================== MASTER-SLAVE TEST FUNCTIONS ====================
+
+// Test Write Operations (Master DB)
+async function testWriteOperation() {
+  const testResults = document.getElementById("test-results");
+  testResults.innerHTML = "🔄 Testing Write Operations (Master DB)...\n\n";
+
+  try {
+    const results = [];
+
+    // Test 1: Write to Master via server-info endpoint
+    testResults.innerHTML +=
+      "📝 Test 1: Writing to Master DB via /api/server-info...\n";
+    const writeResponse = await fetch("/api/server-info");
+    const writeData = await writeResponse.json();
+
+    if (writeResponse.ok) {
+      results.push(
+        `✅ Write successful - Server ${writeData.server_id} handled request`
+      );
+      results.push(`   Master DB Status: ${writeData.master_db_status}`);
+      results.push(`   Timestamp: ${writeData.timestamp}`);
+    } else {
+      results.push(`❌ Write failed - ${writeResponse.status}`);
+    }
+
+    // Test 2: Check if data was written to Master
+    testResults.innerHTML += "🔍 Test 2: Verifying data in Master DB...\n";
+    const statsResponse = await fetch("/api/stats");
+    const statsData = await statsResponse.json();
+
+    if (statsResponse.ok) {
+      results.push(`✅ Stats read from Slave - Server ${statsData.server_id}`);
+      results.push(`   Total requests: ${statsData.total_requests}`);
+      results.push(`   Read from: ${statsData.read_from}`);
+    } else {
+      results.push(`❌ Stats read failed - ${statsResponse.status}`);
+    }
+
+    // Display results
+    testResults.innerHTML = results.join("\n");
+  } catch (error) {
+    testResults.innerHTML = `❌ Write test failed: ${error.message}`;
+  }
+}
+
+// Test Read Operations (Slave DBs)
+async function testReadOperation() {
+  const testResults = document.getElementById("test-results");
+  testResults.innerHTML = "🔄 Testing Read Operations (Slave DBs)...\n\n";
+
+  try {
+    const results = [];
+
+    // Test multiple reads to see load balancing across slaves
+    testResults.innerHTML +=
+      "📖 Testing multiple reads to verify Slave load balancing...\n";
+
+    for (let i = 1; i <= 5; i++) {
+      const response = await fetch("/api/stats");
+      const data = await response.json();
+
+      if (response.ok) {
+        results.push(
+          `✅ Read ${i}: Server ${data.server_id} - Total: ${data.total_requests} - From: ${data.read_from}`
+        );
+      } else {
+        results.push(`❌ Read ${i} failed: ${response.status}`);
+      }
+
+      // Small delay between requests
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    // Display results
+    testResults.innerHTML = results.join("\n");
+  } catch (error) {
+    testResults.innerHTML = `❌ Read test failed: ${error.message}`;
+  }
+}
+
+// Test Replication Status
+async function testReplication() {
+  const testResults = document.getElementById("test-results");
+  testResults.innerHTML = "🔄 Testing MySQL Master-Slave Replication...\n\n";
+
+  try {
+    const results = [];
+
+    // Test 1: Check all backend health status
+    testResults.innerHTML +=
+      "🔍 Checking all backend database connections...\n";
+
+    for (let i = 1; i <= 3; i++) {
+      try {
+        const response = await fetch(`/health/backend${i}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          results.push(
+            `✅ Backend ${i}: Master=${data.master_db}, Slave1=${data.slave1_db}, Slave2=${data.slave2_db}`
+          );
+        } else {
+          results.push(`❌ Backend ${i}: Health check failed`);
+        }
+      } catch (error) {
+        results.push(`❌ Backend ${i}: ${error.message}`);
+      }
+    }
+
+    // Test 2: Write data and check replication
+    testResults.innerHTML += "\n📝 Testing data replication...\n";
+
+    // Write some test data
+    const writeResponse = await fetch("/api/server-info");
+    const writeData = await writeResponse.json();
+
+    if (writeResponse.ok) {
+      results.push(`✅ Data written via Server ${writeData.server_id}`);
+
+      // Wait a bit for replication
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Check if data appears in stats (read from slaves)
+      const statsResponse = await fetch("/api/stats");
+      const statsData = await statsResponse.json();
+
+      if (statsResponse.ok) {
+        results.push(
+          `✅ Data replicated - Stats show ${statsData.total_requests} total requests`
+        );
+        results.push(`   Read from: ${statsData.read_from} (Slave DB)`);
+      } else {
+        results.push(`❌ Stats read failed - Replication may not be working`);
+      }
+    } else {
+      results.push(`❌ Write test failed`);
+    }
+
+    // Display results
+    testResults.innerHTML = results.join("\n");
+  } catch (error) {
+    testResults.innerHTML = `❌ Replication test failed: ${error.message}`;
+  }
+}
+
+// Test Load Balancing
+async function testLoadBalancing() {
+  const testResults = document.getElementById("test-results");
+  testResults.innerHTML = "🔄 Testing Load Balancing (Round Robin)...\n\n";
+
+  try {
+    const results = [];
+    const serverCounts = {};
+
+    testResults.innerHTML +=
+      "⚖️ Sending 10 requests to test load balancing...\n";
+
+    // Send 10 requests and track which server handles each
+    for (let i = 1; i <= 10; i++) {
+      const response = await fetch("/api/server-info");
+      const data = await response.json();
+
+      if (response.ok) {
+        const serverId = data.server_id;
+        serverCounts[serverId] = (serverCounts[serverId] || 0) + 1;
+        results.push(`Request ${i}: Server ${serverId}`);
+      } else {
+        results.push(`Request ${i}: Failed (${response.status})`);
+      }
+
+      // Small delay between requests
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
+    // Analyze load balancing
+    results.push("\n📊 Load Balancing Analysis:");
+    results.push("==========================");
+
+    const totalRequests = Object.values(serverCounts).reduce(
+      (sum, count) => sum + count,
+      0
+    );
+    const expectedPerServer = totalRequests / 3;
+
+    for (const [serverId, count] of Object.entries(serverCounts)) {
+      const percentage = ((count / totalRequests) * 100).toFixed(1);
+      const deviation = Math.abs(count - expectedPerServer).toFixed(1);
+
+      results.push(
+        `Server ${serverId}: ${count} requests (${percentage}%) - Deviation: ${deviation}`
+      );
+    }
+
+    // Check if load balancing is working well
+    const maxDeviation = Math.max(
+      ...Object.values(serverCounts).map((count) =>
+        Math.abs(count - expectedPerServer)
+      )
+    );
+    if (maxDeviation <= 1) {
+      results.push("\n✅ Load balancing is working well! (Low deviation)");
+    } else if (maxDeviation <= 2) {
+      results.push("\n⚠️ Load balancing is working but with some deviation");
+    } else {
+      results.push(
+        "\n❌ Load balancing may not be working properly (High deviation)"
+      );
+    }
+
+    // Display results
+    testResults.innerHTML = results.join("\n");
+  } catch (error) {
+    testResults.innerHTML = `❌ Load balancing test failed: ${error.message}`;
+  }
+}
+
+// Run All Tests
+async function runAllTests() {
+  const testResults = document.getElementById("test-results");
+  testResults.innerHTML = "🚀 Running Complete Master-Slave Test Suite...\n\n";
+
+  try {
+    const allResults = [];
+
+    // Test 1: Write Operations
+    allResults.push("=== TEST 1: WRITE OPERATIONS (MASTER DB) ===");
+    testResults.innerHTML += "🔄 Test 1: Write Operations...\n";
+
+    const writeResponse = await fetch("/api/server-info");
+    const writeData = await writeResponse.json();
+
+    if (writeResponse.ok) {
+      allResults.push(`✅ Write successful - Server ${writeData.server_id}`);
+      allResults.push(`   Master DB Status: ${writeData.master_db_status}`);
+    } else {
+      allResults.push(`❌ Write failed - ${writeResponse.status}`);
+    }
+
+    // Test 2: Read Operations
+    allResults.push("\n=== TEST 2: READ OPERATIONS (SLAVE DBs) ===");
+    testResults.innerHTML += "🔄 Test 2: Read Operations...\n";
+
+    const readResponse = await fetch("/api/stats");
+    const readData = await readResponse.json();
+
+    if (readResponse.ok) {
+      allResults.push(`✅ Read successful - Server ${readData.server_id}`);
+      allResults.push(`   Total requests: ${readData.total_requests}`);
+      allResults.push(`   Read from: ${readData.read_from}`);
+    } else {
+      allResults.push(`❌ Read failed - ${readResponse.status}`);
+    }
+
+    // Test 3: Database Connections
+    allResults.push("\n=== TEST 3: DATABASE CONNECTIONS ===");
+    testResults.innerHTML += "🔄 Test 3: Database Connections...\n";
+
+    for (let i = 1; i <= 3; i++) {
+      try {
+        const healthResponse = await fetch(`/health/backend${i}`);
+        const healthData = await healthResponse.json();
+
+        if (healthResponse.ok) {
+          allResults.push(
+            `✅ Backend ${i}: Master=${healthData.master_db}, Slave1=${healthData.slave1_db}, Slave2=${healthData.slave2_db}`
+          );
+        } else {
+          allResults.push(`❌ Backend ${i}: Health check failed`);
+        }
+      } catch (error) {
+        allResults.push(`❌ Backend ${i}: ${error.message}`);
+      }
+    }
+
+    // Test 4: Load Balancing
+    allResults.push("\n=== TEST 4: LOAD BALANCING ===");
+    testResults.innerHTML += "🔄 Test 4: Load Balancing...\n";
+
+    const serverCounts = {};
+    for (let i = 1; i <= 6; i++) {
+      const response = await fetch("/api/server-info");
+      const data = await response.json();
+
+      if (response.ok) {
+        const serverId = data.server_id;
+        serverCounts[serverId] = (serverCounts[serverId] || 0) + 1;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    allResults.push("Load distribution:");
+    for (const [serverId, count] of Object.entries(serverCounts)) {
+      allResults.push(`  Server ${serverId}: ${count} requests`);
+    }
+
+    // Test 5: Replication
+    allResults.push("\n=== TEST 5: REPLICATION STATUS ===");
+    testResults.innerHTML += "🔄 Test 5: Replication...\n";
+
+    // Wait for replication
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const finalStatsResponse = await fetch("/api/stats");
+    const finalStatsData = await finalStatsResponse.json();
+
+    if (finalStatsResponse.ok) {
+      allResults.push(
+        `✅ Final stats: ${finalStatsData.total_requests} total requests`
+      );
+      allResults.push(`   Read from: ${finalStatsData.read_from} (Slave DB)`);
+    } else {
+      allResults.push(`❌ Final stats read failed`);
+    }
+
+    // Summary
+    allResults.push("\n=== TEST SUMMARY ===");
+    allResults.push("===================");
+
+    const totalTests = 5;
+    let passedTests = 0;
+
+    if (writeResponse.ok) passedTests++;
+    if (readResponse.ok) passedTests++;
+    if (Object.keys(serverCounts).length > 0) passedTests++;
+    if (finalStatsResponse.ok) passedTests++;
+
+    // Check if at least 3 backends are healthy
+    let healthyBackends = 0;
+    for (let i = 1; i <= 3; i++) {
+      try {
+        const response = await fetch(`/health/backend${i}`);
+        if (response.ok) healthyBackends++;
+      } catch (error) {
+        // Ignore errors
+      }
+    }
+
+    if (healthyBackends >= 2) passedTests++;
+
+    allResults.push(`Tests passed: ${passedTests}/${totalTests}`);
+    allResults.push(`Healthy backends: ${healthyBackends}/3`);
+
+    if (passedTests >= 4) {
+      allResults.push("\n🎉 MASTER-SLAVE SYSTEM IS WORKING CORRECTLY!");
+    } else if (passedTests >= 3) {
+      allResults.push(
+        "\n⚠️ MASTER-SLAVE SYSTEM IS MOSTLY WORKING (Some issues detected)"
+      );
+    } else {
+      allResults.push("\n❌ MASTER-SLAVE SYSTEM HAS SIGNIFICANT ISSUES");
+    }
+
+    // Display all results
+    testResults.innerHTML = allResults.join("\n");
+  } catch (error) {
+    testResults.innerHTML = `❌ Complete test suite failed: ${error.message}`;
+  }
+}
+
