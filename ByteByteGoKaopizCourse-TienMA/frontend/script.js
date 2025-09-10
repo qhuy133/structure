@@ -1,5 +1,5 @@
 // Configuration - Thay đổi BASE_URL để kết nối tới server khác
-const BASE_URL = 'http://172.20.77.184:8090';
+const BASE_URL = 'http://localhost:8090';
 
 // Global variables
 let requestStats = {
