@@ -153,12 +153,16 @@ async function checkServer(serverId, port) {
   const statusElement = document.getElementById(`server${serverId}-status`);
 
   try {
-    const response = await fetch(`http://localhost:${port}/health`);
+    // Use health check endpoint via load balancer
+    const response = await fetch(`/health/backend${serverId}`);
     const data = await response.json();
 
     if (data.status === "healthy") {
       statusElement.textContent = "Online";
       statusElement.className = "status-online";
+
+      // Update database status display
+      updateDatabaseStatus(serverId, data);
     } else {
       statusElement.textContent = "Unhealthy";
       statusElement.className = "status-offline";
@@ -166,6 +170,26 @@ async function checkServer(serverId, port) {
   } catch (error) {
     statusElement.textContent = "Offline";
     statusElement.className = "status-offline";
+  }
+}
+
+// Update database status display
+function updateDatabaseStatus(serverId, data) {
+  const dbStatusElement = document.getElementById(
+    `server${serverId}-db-status`
+  );
+  if (dbStatusElement) {
+    const masterStatus = data.master_db === "connected" ? "✅" : "❌";
+    const slave1Status = data.slave1_db === "connected" ? "✅" : "❌";
+    const slave2Status = data.slave2_db === "connected" ? "✅" : "❌";
+
+    dbStatusElement.innerHTML = `
+      <div style="font-size: 12px; margin-top: 5px;">
+        <div>Master: ${masterStatus}</div>
+        <div>Slave1: ${slave1Status}</div>
+        <div>Slave2: ${slave2Status}</div>
+      </div>
+    `;
   }
 }
 
