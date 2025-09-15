@@ -1,4 +1,75 @@
 services:
+  # MySQL Master Database
+  mysql-master:
+    image: mysql:8.0
+    container_name: mysql_master
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: loadbalancer_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_REPLICATION_USER: replicator
+      MYSQL_REPLICATION_PASSWORD: replicator_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_master_data:/var/lib/mysql
+      - ./mysql/master/my.cnf:/etc/mysql/my.cnf
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW --gtid-mode=ON --enforce-gtid-consistency=ON
+    networks:
+      - load_balancer_network
+
+  # MySQL Slave 1
+  mysql-slave1:
+    image: mysql:8.0
+    container_name: mysql_slave1
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: loadbalancer_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_MASTER_HOST: mysql-master
+      MYSQL_MASTER_USER: replicator
+      MYSQL_MASTER_PASSWORD: replicator_password
+      MYSQL_MASTER_PORT: 3306
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_slave1_data:/var/lib/mysql
+      - ./mysql/slave1/my.cnf:/etc/mysql/my.cnf
+      - ./init-slave.sql:/docker-entrypoint-initdb.d/init-slave.sql
+    command: --server-id=2 --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
+    depends_on:
+      - mysql-master
+    networks:
+      - load_balancer_network
+
+  # MySQL Slave 2
+  mysql-slave2:
+    image: mysql:8.0
+    container_name: mysql_slave2
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: loadbalancer_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_MASTER_HOST: mysql-master
+      MYSQL_MASTER_USER: replicator
+      MYSQL_MASTER_PASSWORD: replicator_password
+      MYSQL_MASTER_PORT: 3306
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_slave2_data:/var/lib/mysql
+      - ./mysql/slave2/my.cnf:/etc/mysql/my.cnf
+      - ./init-slave.sql:/docker-entrypoint-initdb.d/init-slave.sql
+    command: --server-id=3 --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
+    depends_on:
+      - mysql-master
+    networks:
+      - load_balancer_network
+
   # Nginx Load Balancer with Frontend
   nginx:
     build: 
@@ -21,8 +92,19 @@ services:
     environment:
       - SERVER_ID=server-1
       - PORT=8000
+      # Database connections
+      - DB_MASTER_HOST=mysql-master
+      - DB_SLAVE1_HOST=mysql-slave1
+      - DB_SLAVE2_HOST=mysql-slave2
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=loadbalancer_db
     expose:
       - "8000"
+    depends_on:
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
     networks:
       - load_balancer_network
 
@@ -32,8 +114,19 @@ services:
     environment:
       - SERVER_ID=server-2
       - PORT=8000
+      # Database connections
+      - DB_MASTER_HOST=mysql-master
+      - DB_SLAVE1_HOST=mysql-slave1
+      - DB_SLAVE2_HOST=mysql-slave2
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=loadbalancer_db
     expose:
       - "8000"
+    depends_on:
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
     networks:
       - load_balancer_network
 
@@ -43,10 +136,26 @@ services:
     environment:
       - SERVER_ID=server-3
       - PORT=8000
+      # Database connections
+      - DB_MASTER_HOST=mysql-master
+      - DB_SLAVE1_HOST=mysql-slave1
+      - DB_SLAVE2_HOST=mysql-slave2
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=loadbalancer_db
     expose:
       - "8000"
+    depends_on:
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
     networks:
       - load_balancer_network
+
+volumes:
+  mysql_master_data:
+  mysql_slave1_data:
+  mysql_slave2_data:
 
 networks:
   load_balancer_network:

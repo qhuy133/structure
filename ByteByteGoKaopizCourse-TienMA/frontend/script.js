@@ -12,7 +12,9 @@ let requestStats = {
 let serverEndpoints = [
     `${BASE_URL}/health`,
     `${BASE_URL}/api/`,
-    `${BASE_URL}/api/users`
+    `${BASE_URL}/api/users`,
+    `${BASE_URL}/api/products`,
+    `${BASE_URL}/api/requests-log`
 ];
 
 // Initialize the dashboard
@@ -146,7 +148,9 @@ async function checkServerStatus() {
     const endpoints = [
         { name: 'Health Check', url: '/health', icon: 'fas fa-heartbeat' },
         { name: 'Main API', url: '/api/', icon: 'fas fa-home' },
-        { name: 'Users API', url: '/api/users', icon: 'fas fa-users' }
+        { name: 'Users API', url: '/api/users', icon: 'fas fa-users' },
+        { name: 'Products API', url: '/api/products', icon: 'fas fa-box' },
+        { name: 'Requests Log', url: '/api/requests-log', icon: 'fas fa-list' }
     ];
     
     for (let i = 0; i < endpoints.length; i++) {
@@ -160,7 +164,33 @@ async function checkServerStatus() {
         const statusText = result.success ? 'Online' : 'Offline';
         
         let serverInfo = '';
-        if (result.success && result.data) {
+            if (result.success && result.data) {
+            let dbInfo = '';
+            if (result.data.database_status) {
+                dbInfo = `
+                    <div class="server-detail">
+                        <strong>Database:</strong><br>
+                        ${result.data.database_status}
+                    </div>
+                `;
+            }
+            if (result.data.read_from_slave) {
+                dbInfo += `
+                    <div class="server-detail">
+                        <strong>Read From:</strong><br>
+                        ${result.data.read_from_slave}
+                    </div>
+                `;
+            }
+            if (result.data.written_to_master) {
+                dbInfo += `
+                    <div class="server-detail">
+                        <strong>Written To:</strong><br>
+                        ${result.data.written_to_master}
+                    </div>
+                `;
+            }
+            
             serverInfo = `
                 <div class="server-info">
                     <div class="server-detail">
@@ -179,6 +209,7 @@ async function checkServerStatus() {
                         <strong>Status:</strong><br>
                         ${result.data.status || 'Running'}
                     </div>
+                    ${dbInfo}
                 </div>
             `;
         } else {
@@ -231,10 +262,12 @@ async function loadUsers() {
         dataDisplay.className = 'data-display has-content';
         dataDisplay.innerHTML = `
             <div class="data-content fade-in">
-                <h3>👥 Users Data</h3>
+                <h3>👥 Users Data (Read from Slave)</h3>
                 <hr style="margin: 10px 0;">
                 <strong>Served by:</strong> ${result.data.served_by}<br>
                 <strong>Hostname:</strong> ${result.data.hostname}<br>
+                <strong>Read from Slave:</strong> ${result.data.read_from_slave}<br>
+                <strong>Total Count:</strong> ${result.data.total_count}<br>
                 <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
                 <strong>Users:</strong><br>
                 ${JSON.stringify(result.data.users, null, 2)}
@@ -347,6 +380,200 @@ async function loadMultipleRequests() {
         });
     } catch (error) {
         addLogEntry('error', 'Multiple requests test failed', { error: error.message });
+    }
+    
+    hideLoading();
+}
+
+// Load products data
+async function loadProducts() {
+    showLoading();
+    addLogEntry('info', 'Loading products data...');
+    
+    const result = await makeApiRequest(`${BASE_URL}/api/products`);
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (result.success) {
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>📦 Products Data (Read from Slave)</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Served by:</strong> ${result.data.served_by}<br>
+                <strong>Hostname:</strong> ${result.data.hostname}<br>
+                <strong>Read from Slave:</strong> ${result.data.read_from_slave}<br>
+                <strong>Total Count:</strong> ${result.data.total_count}<br>
+                <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                <strong>Products:</strong><br>
+                ${JSON.stringify(result.data.products, null, 2)}
+            </div>
+        `;
+        addLogEntry('success', 'Products data loaded successfully');
+    } else {
+        dataDisplay.className = 'data-display';
+        dataDisplay.innerHTML = `
+            <div class="placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <p style="color: #e74c3c;">Failed to load products data</p>
+                <small>${result.error}</small>
+            </div>
+        `;
+        addLogEntry('error', 'Failed to load products data');
+    }
+    
+    hideLoading();
+}
+
+// Load requests log
+async function loadRequestsLog() {
+    showLoading();
+    addLogEntry('info', 'Loading requests log...');
+    
+    const result = await makeApiRequest(`${BASE_URL}/api/requests-log`);
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (result.success) {
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>📋 API Requests Log (Read from Slave)</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Served by:</strong> ${result.data.served_by}<br>
+                <strong>Hostname:</strong> ${result.data.hostname}<br>
+                <strong>Read from Slave:</strong> ${result.data.read_from_slave}<br>
+                <strong>Total Count:</strong> ${result.data.total_count}<br>
+                <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                <strong>Recent Requests:</strong><br>
+                ${JSON.stringify(result.data.requests, null, 2)}
+            </div>
+        `;
+        addLogEntry('success', 'Requests log loaded successfully');
+    } else {
+        dataDisplay.className = 'data-display';
+        dataDisplay.innerHTML = `
+            <div class="placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <p style="color: #e74c3c;">Failed to load requests log</p>
+                <small>${result.error}</small>
+            </div>
+        `;
+        addLogEntry('error', 'Failed to load requests log');
+    }
+    
+    hideLoading();
+}
+
+// Create new user (write to master)
+async function createUser() {
+    showLoading();
+    addLogEntry('info', 'Creating new user...');
+    
+    const name = prompt('Enter user name:');
+    const email = prompt('Enter user email:');
+    
+    if (!name || !email) {
+        addLogEntry('info', 'User creation cancelled');
+        hideLoading();
+        return;
+    }
+    
+    const result = await makeApiRequest(`${BASE_URL}/api/users`, {
+        method: 'POST',
+        body: JSON.stringify({ name, email })
+    });
+    
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (result.success) {
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>✅ User Created (Written to Master)</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Served by:</strong> ${result.data.served_by}<br>
+                <strong>Written to Master:</strong> ${result.data.written_to_master}<br>
+                <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                <strong>Created User:</strong><br>
+                <strong>ID:</strong> ${result.data.user_id}<br>
+                <strong>Name:</strong> ${result.data.name}<br>
+                <strong>Email:</strong> ${result.data.email}<br>
+                <strong>Message:</strong> ${result.data.message}
+            </div>
+        `;
+        addLogEntry('success', 'User created successfully');
+    } else {
+        dataDisplay.className = 'data-display';
+        dataDisplay.innerHTML = `
+            <div class="placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <p style="color: #e74c3c;">Failed to create user</p>
+                <small>${result.error}</small>
+            </div>
+        `;
+        addLogEntry('error', 'Failed to create user');
+    }
+    
+    hideLoading();
+}
+
+// Test database replication
+async function testReplication() {
+    showLoading();
+    addLogEntry('info', 'Testing database replication...');
+    
+    // Step 1: Create a user
+    const testName = `Test User ${Date.now()}`;
+    const testEmail = `test${Date.now()}@replication.com`;
+    
+    const createResult = await makeApiRequest(`${BASE_URL}/api/users`, {
+        method: 'POST',
+        body: JSON.stringify({ name: testName, email: testEmail })
+    });
+    
+    if (!createResult.success) {
+        addLogEntry('error', 'Failed to create test user for replication test');
+        hideLoading();
+        return;
+    }
+    
+    addLogEntry('success', 'Test user created on master');
+    
+    // Step 2: Wait a moment for replication
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Step 3: Read from slaves
+    const readResult = await makeApiRequest(`${BASE_URL}/api/users`);
+    
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (readResult.success) {
+        const foundUser = readResult.data.users.find(u => u.email === testEmail);
+        const replicationWorking = foundUser ? 'YES' : 'NO';
+        
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>🔄 Database Replication Test</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Test Result:</strong> ${replicationWorking === 'YES' ? '✅ PASSED' : '❌ FAILED'}<br>
+                <strong>Written to Master:</strong> ${createResult.data.written_to_master}<br>
+                <strong>Read from Slave:</strong> ${readResult.data.read_from_slave}<br>
+                <strong>User Found on Slave:</strong> ${replicationWorking}<br><br>
+                <strong>Test User Details:</strong><br>
+                <strong>Name:</strong> ${testName}<br>
+                <strong>Email:</strong> ${testEmail}<br>
+                <strong>Created ID:</strong> ${createResult.data.user_id}<br>
+                ${foundUser ? `<strong>Found User:</strong><br>${JSON.stringify(foundUser, null, 2)}` : '<strong>User not found on slave - replication may be delayed</strong>'}
+            </div>
+        `;
+        
+        if (replicationWorking === 'YES') {
+            addLogEntry('success', 'Replication test PASSED - data synced successfully');
+        } else {
+            addLogEntry('warning', 'Replication test FAILED - data not found on slave');
+        }
+    } else {
+        addLogEntry('error', 'Failed to read from slaves during replication test');
     }
     
     hideLoading();
