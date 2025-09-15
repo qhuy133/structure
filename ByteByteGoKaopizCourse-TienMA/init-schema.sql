@@ -1,8 +1,6 @@
--- Initialize slave database with read-only compatible script
--- This script runs on slaves and creates the same structure as master
-
--- Only create database and tables, no data inserts
--- Data will come from replication
+-- Initialize database schema (for both master and slaves)
+-- This script creates only table structures without any data
+-- Data will be inserted separately on master and replicated to slaves
 
 USE loadbalancer_db;
 
@@ -39,5 +37,5 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Note: Data will be replicated from master
--- No INSERT statements here to avoid conflicts with replication
+-- Note: No data insertion here
+-- Sample data will be inserted separately and replicated from master

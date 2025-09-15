@@ -15,7 +15,7 @@ services:
     volumes:
       - mysql_master_data:/var/lib/mysql
       - ./mysql/master/my.cnf:/etc/mysql/my.cnf
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql
     command: --server-id=1 --log-bin=mysql-bin --binlog-format=ROW --gtid-mode=ON --enforce-gtid-consistency=ON
     networks:
       - load_balancer_network
@@ -38,7 +38,7 @@ services:
     volumes:
       - mysql_slave1_data:/var/lib/mysql
       - ./mysql/slave1/my.cnf:/etc/mysql/my.cnf
-      - ./init-slave.sql:/docker-entrypoint-initdb.d/init-slave.sql
+      - ./init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql
     command: --server-id=2 --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
     depends_on:
       - mysql-master
@@ -63,7 +63,7 @@ services:
     volumes:
       - mysql_slave2_data:/var/lib/mysql
       - ./mysql/slave2/my.cnf:/etc/mysql/my.cnf
-      - ./init-slave.sql:/docker-entrypoint-initdb.d/init-slave.sql
+      - ./init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql
     command: --server-id=3 --relay-log=mysql-relay-bin --log-slave-updates=1 --read-only=1
     depends_on:
       - mysql-master
