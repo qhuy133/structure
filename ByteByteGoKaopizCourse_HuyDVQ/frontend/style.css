@@ -526,6 +526,118 @@ body {
     font-size: 0.875rem;
 }
 
+.info-item .value.success {
+    color: var(--success);
+}
+
+.info-item .value.error {
+    color: var(--danger);
+}
+
+.info-item .value.warning {
+    color: var(--warning);
+}
+
+/* Replication Panel */
+.replication-panel {
+    background: white;
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+}
+
+.replication-content {
+    padding: 2rem;
+}
+
+.db-card {
+    background: var(--gray-50);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--gray-200);
+    transition: var(--transition);
+}
+
+.db-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.db-card.master {
+    border-left: 4px solid var(--primary);
+}
+
+.db-card.slave {
+    border-left: 4px solid var(--info);
+}
+
+.db-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.db-header h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.db-header i {
+    color: var(--primary);
+}
+
+.db-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.db-status.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.db-status.error {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.db-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+}
+
+.slaves-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.replication-test-results {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--gray-50);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--gray-200);
+}
+
+.replication-test-results h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 1rem;
+}
+
 /* Requests Panel */
 .requests-panel {
     background: white;
@@ -783,6 +895,10 @@ body {
     }
     
     .servers-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .slaves-container {
         grid-template-columns: 1fr;
     }
     

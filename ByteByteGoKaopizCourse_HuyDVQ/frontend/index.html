@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Load Balancer Dashboard</title>
+    <title>Load Balancer Dashboard - Master-Slave Demo</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -27,6 +27,10 @@
                 <a href="#servers" class="menu-item" data-tab="servers">
                     <i class="fas fa-server"></i>
                     <span>Servers</span>
+                </a>
+                <a href="#replication" class="menu-item" data-tab="replication">
+                    <i class="fas fa-database"></i>
+                    <span>Replication</span>
                 </a>
                 <a href="#requests" class="menu-item" data-tab="requests">
                     <i class="fas fa-exchange-alt"></i>
@@ -102,7 +106,7 @@
                         <div class="stat-content">
                             <h3 id="dbStatus">Online</h3>
                             <p>Database Status</p>
-                            <span class="stat-change neutral">Stable</span>
+                            <span class="stat-change neutral">1M + 2S</span>
                         </div>
                     </div>
                 </div>
@@ -127,13 +131,13 @@
                             <i class="fas fa-balance-scale"></i>
                             <span>Load Balance Test</span>
                         </button>
+                        <button class="action-btn" onclick="testReplication()">
+                            <i class="fas fa-sync"></i>
+                            <span>Test Replication</span>
+                        </button>
                         <button class="action-btn" onclick="runAllTests()">
                             <i class="fas fa-play-circle"></i>
                             <span>Run All Tests</span>
-                        </button>
-                        <button class="action-btn" onclick="clearResults()">
-                            <i class="fas fa-trash"></i>
-                            <span>Clear Results</span>
                         </button>
                     </div>
                 </div>
@@ -175,8 +179,16 @@
                                 <span class="value" id="server1Health">Checking...</span>
                             </div>
                             <div class="info-item">
-                                <span class="label">Database:</span>
-                                <span class="value" id="server1DB">Unknown</span>
+                                <span class="label">Master DB:</span>
+                                <span class="value" id="server1Master">Unknown</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Slave1 DB:</span>
+                                <span class="value" id="server1Slave1">Unknown</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Slave2 DB:</span>
+                                <span class="value" id="server1Slave2">Unknown</span>
                             </div>
                         </div>
                         <button class="btn btn-sm" onclick="testServer(1)">Test</button>
@@ -197,8 +209,16 @@
                                 <span class="value" id="server2Health">Checking...</span>
                             </div>
                             <div class="info-item">
-                                <span class="label">Database:</span>
-                                <span class="value" id="server2DB">Unknown</span>
+                                <span class="label">Master DB:</span>
+                                <span class="value" id="server2Master">Unknown</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Slave1 DB:</span>
+                                <span class="value" id="server2Slave1">Unknown</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Slave2 DB:</span>
+                                <span class="value" id="server2Slave2">Unknown</span>
                             </div>
                         </div>
                         <button class="btn btn-sm" onclick="testServer(2)">Test</button>
@@ -219,11 +239,127 @@
                                 <span class="value" id="server3Health">Checking...</span>
                             </div>
                             <div class="info-item">
-                                <span class="label">Database:</span>
-                                <span class="value" id="server3DB">Unknown</span>
+                                <span class="label">Master DB:</span>
+                                <span class="value" id="server3Master">Unknown</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Slave1 DB:</span>
+                                <span class="value" id="server3Slave1">Unknown</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Slave2 DB:</span>
+                                <span class="value" id="server3Slave2">Unknown</span>
                             </div>
                         </div>
                         <button class="btn btn-sm" onclick="testServer(3)">Test</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Replication Tab -->
+            <div class="tab-content" id="replication">
+                <div class="replication-panel">
+                    <div class="panel-header">
+                        <h3>Database Replication Status</h3>
+                        <div class="panel-actions">
+                            <button class="btn btn-sm" onclick="checkReplicationStatus()">
+                                <i class="fas fa-sync-alt"></i>
+                                Refresh
+                            </button>
+                            <button class="btn btn-sm" onclick="testReplication()">
+                                <i class="fas fa-vial"></i>
+                                Test
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="replication-content">
+                        <!-- Master Database -->
+                        <div class="db-card master">
+                            <div class="db-header">
+                                <h4><i class="fas fa-database"></i> Master Database</h4>
+                                <div class="db-status" id="masterStatus">Checking...</div>
+                            </div>
+                            <div class="db-info">
+                                <div class="info-item">
+                                    <span class="label">Host:</span>
+                                    <span class="value">mysql-master:3306</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="label">Role:</span>
+                                    <span class="value">Write Operations</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slave Databases -->
+                        <div class="slaves-container">
+                            <div class="db-card slave">
+                                <div class="db-header">
+                                    <h4><i class="fas fa-database"></i> Slave Database 1</h4>
+                                    <div class="db-status" id="slave1Status">Checking...</div>
+                                </div>
+                                <div class="db-info">
+                                    <div class="info-item">
+                                        <span class="label">Host:</span>
+                                        <span class="value">mysql-slave1:3306</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">Role:</span>
+                                        <span class="value">Read Operations</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">IO Running:</span>
+                                        <span class="value" id="slave1IO">Unknown</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">SQL Running:</span>
+                                        <span class="value" id="slave1SQL">Unknown</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">Behind Master:</span>
+                                        <span class="value" id="slave1Behind">Unknown</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="db-card slave">
+                                <div class="db-header">
+                                    <h4><i class="fas fa-database"></i> Slave Database 2</h4>
+                                    <div class="db-status" id="slave2Status">Checking...</div>
+                                </div>
+                                <div class="db-info">
+                                    <div class="info-item">
+                                        <span class="label">Host:</span>
+                                        <span class="value">mysql-slave2:3306</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">Role:</span>
+                                        <span class="value">Read Operations</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">IO Running:</span>
+                                        <span class="value" id="slave2IO">Unknown</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">SQL Running:</span>
+                                        <span class="value" id="slave2SQL">Unknown</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="label">Behind Master:</span>
+                                        <span class="value" id="slave2Behind">Unknown</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Replication Test Results -->
+                    <div class="replication-test-results" id="replicationTestResults">
+                        <h4>Replication Test Results</h4>
+                        <div id="replicationTestContent">
+                            <p>Click "Test" to run replication tests...</p>
+                        </div>
                     </div>
                 </div>
             </div>

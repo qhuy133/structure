@@ -1,4 +1,4 @@
-// Modern Load Balancer Dashboard JavaScript
+// Modern Load Balancer Dashboard JavaScript with Master-Slave Support
 
 // Global variables
 let requestCount = 0;
@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSavedData();
     updateStats();
     checkServerHealth();
+    checkReplicationStatus();
 });
 
 // Initialize application
@@ -93,7 +94,7 @@ function updateStats() {
     // Update database status
     const dbStatus = document.getElementById('dbStatus');
     if (dbStatus) {
-        dbStatus.textContent = 'Online';
+        dbStatus.textContent = '1M + 2S';
     }
 }
 
@@ -103,39 +104,160 @@ async function checkServerHealth() {
     
     for (const serverId of servers) {
         try {
-            const response = await fetch(`health/backend${serverId}`);
+            const response = await fetch(`/health/backend${serverId}`);
             const data = await response.json();
             
             // Update server health display
             const healthElement = document.getElementById(`server${serverId}Health`);
-            const dbElement = document.getElementById(`server${serverId}DB`);
+            const masterElement = document.getElementById(`server${serverId}Master`);
+            const slave1Element = document.getElementById(`server${serverId}Slave1`);
+            const slave2Element = document.getElementById(`server${serverId}Slave2`);
             
             if (healthElement) {
                 healthElement.textContent = data.status || 'Unknown';
                 healthElement.className = data.status === 'healthy' ? 'value success' : 'value error';
             }
             
-            if (dbElement) {
-                dbElement.textContent = data.master_db || 'Unknown';
-                dbElement.className = data.master_db === 'connected' ? 'value success' : 'value error';
+            if (masterElement) {
+                masterElement.textContent = data.master_db || 'Unknown';
+                masterElement.className = data.master_db === 'connected' ? 'value success' : 'value error';
+            }
+            
+            if (slave1Element) {
+                slave1Element.textContent = data.slave1_db || 'Unknown';
+                slave1Element.className = data.slave1_db === 'connected' ? 'value success' : 'value error';
+            }
+            
+            if (slave2Element) {
+                slave2Element.textContent = data.slave2_db || 'Unknown';
+                slave2Element.className = data.slave2_db === 'connected' ? 'value success' : 'value error';
             }
         } catch (error) {
             console.error(`Error checking server ${serverId}:`, error);
             
             const healthElement = document.getElementById(`server${serverId}Health`);
-            const dbElement = document.getElementById(`server${serverId}DB`);
+            const masterElement = document.getElementById(`server${serverId}Master`);
+            const slave1Element = document.getElementById(`server${serverId}Slave1`);
+            const slave2Element = document.getElementById(`server${serverId}Slave2`);
             
-            if (healthElement) {
-                healthElement.textContent = 'Error';
-                healthElement.className = 'value error';
-            }
-            
-            if (dbElement) {
-                dbElement.textContent = 'Error';
-                dbElement.className = 'value error';
-            }
+            [healthElement, masterElement, slave1Element, slave2Element].forEach(element => {
+                if (element) {
+                    element.textContent = 'Error';
+                    element.className = 'value error';
+                }
+            });
         }
     }
+}
+
+// Check replication status
+async function checkReplicationStatus() {
+    try {
+        const response = await fetch('/api/replication-status');
+        const data = await response.json();
+        
+        // Update master status
+        const masterStatus = document.getElementById('masterStatus');
+        if (masterStatus) {
+            masterStatus.textContent = data.master_status === 'connected' ? 'Connected' : 'Disconnected';
+            masterStatus.className = `db-status ${data.master_status === 'connected' ? 'success' : 'error'}`;
+        }
+        
+        // Update slave statuses
+        data.slaves.forEach(slave => {
+            const statusElement = document.getElementById(`${slave.name}Status`);
+            const ioElement = document.getElementById(`${slave.name}IO`);
+            const sqlElement = document.getElementById(`${slave.name}SQL`);
+            const behindElement = document.getElementById(`${slave.name}Behind`);
+            
+            if (statusElement) {
+                statusElement.textContent = slave.status === 'connected' ? 'Connected' : 'Error';
+                statusElement.className = `db-status ${slave.status === 'connected' ? 'success' : 'error'}`;
+            }
+            
+            if (ioElement) {
+                ioElement.textContent = slave.slave_io_running || 'Unknown';
+                ioElement.className = slave.slave_io_running === 'Yes' ? 'value success' : 'value error';
+            }
+            
+            if (sqlElement) {
+                sqlElement.textContent = slave.slave_sql_running || 'Unknown';
+                sqlElement.className = slave.slave_sql_running === 'Yes' ? 'value success' : 'value error';
+            }
+            
+            if (behindElement) {
+                behindElement.textContent = slave.seconds_behind_master || 'Unknown';
+                behindElement.className = slave.seconds_behind_master === 0 ? 'value success' : 'value warning';
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error checking replication status:', error);
+        showToast('Failed to check replication status', 'error');
+    }
+}
+
+// Test replication
+async function testReplication() {
+    const responseElement = document.getElementById('responseText');
+    
+    try {
+        responseElement.textContent = 'Testing replication...';
+        
+        const response = await fetch('/api/test-replication', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        responseElement.textContent = JSON.stringify(data, null, 2);
+        
+        // Update replication test results
+        updateReplicationTestResults(data);
+        
+        if (response.ok) {
+            showToast('Replication test completed!', 'success');
+            addTestResult('Replication Test', 'success', `Test ID: ${data.test_id}, Write: ${data.write_result}`);
+        } else {
+            showToast('Replication test failed!', 'error');
+            addTestResult('Replication Test', 'error', 'Failed to test replication');
+        }
+        
+    } catch (error) {
+        responseElement.textContent = `Error: ${error.message}`;
+        showToast('Replication test failed!', 'error');
+        addTestResult('Replication Test', 'error', error.message);
+    }
+}
+
+// Update replication test results
+function updateReplicationTestResults(data) {
+    const testContent = document.getElementById('replicationTestContent');
+    
+    let html = `
+        <div class="test-result">
+            <h5>Test ID: ${data.test_id}</h5>
+            <div class="test-details">
+                <p><strong>Write Result:</strong> <span class="${data.write_result === 'success' ? 'success' : 'error'}">${data.write_result}</span></p>
+                <p><strong>Read Results:</strong></p>
+                <ul>
+    `;
+    
+    data.read_results.forEach(result => {
+        const statusClass = result.status === 'success' ? 'success' : 'error';
+        const foundText = result.found ? 'Found' : 'Not Found';
+        html += `<li><strong>${result.slave}:</strong> <span class="${statusClass}">${result.status}</span> - ${foundText}</li>`;
+    });
+    
+    html += `
+                </ul>
+            </div>
+        </div>
+    `;
+    
+    testContent.innerHTML = html;
 }
 
 // Make a request to the API
@@ -181,11 +303,15 @@ async function testWriteOperation() {
     try {
         responseElement.textContent = 'Testing write operation...';
         
-        const response = await fetch('api/requests', {
-            method: 'GET',
+        const response = await fetch('/api/requests', {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
+            body: JSON.stringify({
+                client_ip: '127.0.0.1',
+                user_agent: 'Load Balancer Test'
+            })
         });
         
         const data = await response.json();
@@ -220,7 +346,7 @@ async function testReadOperation() {
         
         if (response.ok) {
             showToast('Read operation successful!', 'success');
-            addTestResult('Read Operation', 'success', 'Data read from slave database');
+            addTestResult('Read Operation', 'success', `Data read from ${data.read_from} database`);
         } else {
             showToast('Read operation failed!', 'error');
             addTestResult('Read Operation', 'error', 'Failed to read data');
@@ -239,7 +365,7 @@ async function testLoadBalancing() {
     responseElement.textContent = 'Testing load balancing...';
     
     const results = [];
-    const requests = 5;
+    const requests = 10;
     
     for (let i = 0; i < requests; i++) {
         try {
@@ -286,6 +412,9 @@ async function runAllTests() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     await testLoadBalancing();
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    await testReplication();
     
     showToast('All tests completed!', 'success');
 }
@@ -297,7 +426,7 @@ async function testServer(serverId) {
     try {
         responseElement.textContent = `Testing server ${serverId}...`;
         
-        const response = await fetch(`health/backend${serverId}`);
+        const response = await fetch(`/health/backend${serverId}`);
         const data = await response.json();
         
         responseElement.textContent = JSON.stringify(data, null, 2);
@@ -429,6 +558,7 @@ function clearResults() {
 function refreshData() {
     updateStats();
     checkServerHealth();
+    checkReplicationStatus();
     showToast('Data refreshed!', 'success');
 }
 
@@ -491,5 +621,6 @@ function getToastIcon(type) {
 // Auto-refresh data every 30 seconds
 setInterval(() => {
     checkServerHealth();
+    checkReplicationStatus();
     updateStats();
 }, 30000);
