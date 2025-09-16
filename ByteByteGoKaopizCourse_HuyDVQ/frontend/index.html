@@ -1,122 +1,278 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Load Balancer Demo</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <h1>Load Balancer Demo</h1>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Load Balancer Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-balance-scale"></i>
+                    <span>Load Balancer</span>
+                </div>
+            </div>
+            
+            <div class="sidebar-menu">
+                <a href="#dashboard" class="menu-item active" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#servers" class="menu-item" data-tab="servers">
+                    <i class="fas fa-server"></i>
+                    <span>Servers</span>
+                </a>
+                <a href="#requests" class="menu-item" data-tab="requests">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Requests</span>
+                </a>
+                <a href="#analytics" class="menu-item" data-tab="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                </a>
+            </div>
+        </nav>
 
-      <div class="button-container">
-        <button id="requestBtn" onclick="makeRequest()">Send Request</button>
-        <button onclick="testWriteOperation()" style="background: #28a745">
-          Test Write (Master)
-        </button>
-        <button onclick="testReadOperation()" style="background: #17a2b8">
-          Test Read (Slave)
-        </button>
-        <button
-          onclick="testReplication()"
-          style="background: #ffc107; color: #000"
-        >
-          Test Replication
-        </button>
-        <button onclick="testLoadBalancing()" style="background: #6f42c1">
-          Test Load Balancing
-        </button>
-        <button onclick="runAllTests()" style="background: #dc3545">
-          Run All Tests
-        </button>
-      </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="topbar">
+                <div class="topbar-left">
+                    <button class="menu-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 class="page-title">Dashboard</h1>
+                </div>
+                <div class="topbar-right">
+                    <div class="status-indicator">
+                        <div class="status-dot" id="statusDot"></div>
+                        <span id="statusText">Connected</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i>
+                        Refresh
+                    </button>
+                </div>
+            </header>
 
-      <div class="response-container">
-        <h3>Response:</h3>
-        <div id="response" class="response-box">
-          <p>Click the button above to send a request</p>
-        </div>
-      </div>
+            <!-- Dashboard Tab -->
+            <div class="tab-content active" id="dashboard">
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="totalRequests">0</h3>
+                            <p>Total Requests</p>
+                            <span class="stat-change positive">+12%</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="avgResponseTime">0ms</h3>
+                            <p>Avg Response Time</p>
+                            <span class="stat-change negative">-5%</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="successRate">100%</h3>
+                            <p>Success Rate</p>
+                            <span class="stat-change positive">+2%</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="dbStatus">Online</h3>
+                            <p>Database Status</p>
+                            <span class="stat-change neutral">Stable</span>
+                        </div>
+                    </div>
+                </div>
 
-      <div class="stats-container">
-        <h3>Request Statistics:</h3>
-        <div id="stats" class="stats-box">
-          <p>Loading statistics...</p>
-        </div>
-      </div>
+                <!-- Action Buttons -->
+                <div class="action-section">
+                    <h2>Quick Actions</h2>
+                    <div class="action-grid">
+                        <button class="action-btn" onclick="makeRequest()">
+                            <i class="fas fa-paper-plane"></i>
+                            <span>Send Request</span>
+                        </button>
+                        <button class="action-btn" onclick="testWriteOperation()">
+                            <i class="fas fa-edit"></i>
+                            <span>Test Write</span>
+                        </button>
+                        <button class="action-btn" onclick="testReadOperation()">
+                            <i class="fas fa-eye"></i>
+                            <span>Test Read</span>
+                        </button>
+                        <button class="action-btn" onclick="testLoadBalancing()">
+                            <i class="fas fa-balance-scale"></i>
+                            <span>Load Balance Test</span>
+                        </button>
+                        <button class="action-btn" onclick="runAllTests()">
+                            <i class="fas fa-play-circle"></i>
+                            <span>Run All Tests</span>
+                        </button>
+                        <button class="action-btn" onclick="clearResults()">
+                            <i class="fas fa-trash"></i>
+                            <span>Clear Results</span>
+                        </button>
+                    </div>
+                </div>
 
-      <div class="test-results">
-        <h3>Master-Slave Test Results:</h3>
-        <div id="test-results" class="test-results-box">
-          <p>Click test buttons above to see results</p>
-        </div>
-      </div>
+                <!-- Response Panel -->
+                <div class="response-panel">
+                    <div class="panel-header">
+                        <h3>Response</h3>
+                        <div class="panel-actions">
+                            <button class="btn btn-sm" onclick="copyResponse()">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button class="btn btn-sm" onclick="clearResponse()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="response-content">
+                        <pre id="responseText">Click an action button to see responses...</pre>
+                    </div>
+                </div>
+            </div>
 
-      <div class="server-info">
-        <h3>Server Information:</h3>
-        <div class="server-grid">
-          <div class="server-card">
-            <h4>Backend Server 1</h4>
-            <p>Port: 3001</p>
-            <p>Status: <span id="server1-status">Checking...</span></p>
-            <div id="server1-db-status"></div>
-          </div>
-          <div class="server-card">
-            <h4>Backend Server 2</h4>
-            <p>Port: 3002</p>
-            <p>Status: <span id="server2-status">Checking...</span></p>
-            <div id="server2-db-status"></div>
-          </div>
-          <div class="server-card">
-            <h4>Backend Server 3</h4>
-            <p>Port: 3003</p>
-            <p>Status: <span id="server3-status">Checking...</span></p>
-            <div id="server3-db-status"></div>
-          </div>
-        </div>
-      </div>
+            <!-- Servers Tab -->
+            <div class="tab-content" id="servers">
+                <div class="servers-grid">
+                    <div class="server-card">
+                        <div class="server-header">
+                            <h3>Backend Server 1</h3>
+                            <div class="server-status online">Online</div>
+                        </div>
+                        <div class="server-info">
+                            <div class="info-item">
+                                <span class="label">Port:</span>
+                                <span class="value">3001</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Health:</span>
+                                <span class="value" id="server1Health">Checking...</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Database:</span>
+                                <span class="value" id="server1DB">Unknown</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm" onclick="testServer(1)">Test</button>
+                    </div>
+
+                    <div class="server-card">
+                        <div class="server-header">
+                            <h3>Backend Server 2</h3>
+                            <div class="server-status online">Online</div>
+                        </div>
+                        <div class="server-info">
+                            <div class="info-item">
+                                <span class="label">Port:</span>
+                                <span class="value">3002</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Health:</span>
+                                <span class="value" id="server2Health">Checking...</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Database:</span>
+                                <span class="value" id="server2DB">Unknown</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm" onclick="testServer(2)">Test</button>
+                    </div>
+
+                    <div class="server-card">
+                        <div class="server-header">
+                            <h3>Backend Server 3</h3>
+                            <div class="server-status online">Online</div>
+                        </div>
+                        <div class="server-info">
+                            <div class="info-item">
+                                <span class="label">Port:</span>
+                                <span class="value">3003</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Health:</span>
+                                <span class="value" id="server3Health">Checking...</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="label">Database:</span>
+                                <span class="value" id="server3DB">Unknown</span>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm" onclick="testServer(3)">Test</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requests Tab -->
+            <div class="tab-content" id="requests">
+                <div class="requests-panel">
+                    <div class="panel-header">
+                        <h3>Recent Requests</h3>
+                        <button class="btn btn-sm" onclick="refreshRequests()">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                    </div>
+                    <div class="requests-list" id="requestsList">
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <p>No requests yet. Send a request to see data here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div class="tab-content" id="analytics">
+                <div class="analytics-panel">
+                    <div class="panel-header">
+                        <h3>Test Results</h3>
+                        <div class="panel-actions">
+                            <button class="btn btn-sm" onclick="exportResults()">
+                                <i class="fas fa-download"></i>
+                                Export
+                            </button>
+                        </div>
+                    </div>
+                    <div class="test-results" id="testResults">
+                        <div class="empty-state">
+                            <i class="fas fa-chart-line"></i>
+                            <p>Run tests to see analytics here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <script src="script.js?v=2"></script>
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Debug script -->
-    <script>
-      // Debug function to check if test functions are loaded
-      window.addEventListener("load", function () {
-        console.log("Page loaded, checking functions...");
-
-        if (typeof testWriteOperation === "function") {
-          console.log("✅ testWriteOperation is defined");
-        } else {
-          console.log("❌ testWriteOperation is NOT defined");
-        }
-
-        if (typeof testReadOperation === "function") {
-          console.log("✅ testReadOperation is defined");
-        } else {
-          console.log("❌ testReadOperation is NOT defined");
-        }
-
-        if (typeof testReplication === "function") {
-          console.log("✅ testReplication is defined");
-        } else {
-          console.log("❌ testReplication is NOT defined");
-        }
-
-        if (typeof testLoadBalancing === "function") {
-          console.log("✅ testLoadBalancing is defined");
-        } else {
-          console.log("❌ testLoadBalancing is NOT defined");
-        }
-
-        if (typeof runAllTests === "function") {
-          console.log("✅ runAllTests is defined");
-        } else {
-          console.log("❌ runAllTests is NOT defined");
-        }
-      });
-    </script>
-  </body>
+    <script src="script.js"></script>
+</body>
 </html>
-

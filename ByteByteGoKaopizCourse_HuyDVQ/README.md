@@ -46,7 +46,7 @@ MySQL Master ←→ MySQL Slave2 (Replication)
 ./start-with-replication.sh
 
 # Hoặc khởi động thủ công
-docker-compose up -d
+docker compose up -d
 ./setup-replication.sh
 ```
 
@@ -169,7 +169,7 @@ docker compose down -v
 
 ```
 loadbalancer-demo/
-├── docker-compose.yml
+├── docker compose.yml
 ├── init.sql
 ├── start-with-replication.sh
 ├── setup-replication.sh

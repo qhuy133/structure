@@ -10,55 +10,58 @@ const SERVER_ID = process.env.SERVER_ID || "unknown";
 app.use(cors());
 app.use(express.json());
 
-// Database connections
+// Database connection
 let masterConnection;
-let slave1Connection;
-let slave2Connection;
-let currentSlaveIndex = 0; // For round-robin read operations
 
-async function connectDatabases() {
-  try {
-    // Connect to Master DB (for WRITE operations)
-    masterConnection = await mysql.createConnection({
-      host: process.env.DB_MASTER_HOST || "mysql-master",
-      user: process.env.DB_USER || "user",
-      password: process.env.DB_PASSWORD || "password",
-      database: process.env.DB_NAME || "loadbalancer_db",
-    });
-    console.log(`Server ${SERVER_ID}: Master DB connected successfully`);
+async function connectDatabase() {
+  const maxRetries = 10;
+  const retryDelay = 3000;
 
-    // Connect to Slave1 DB (for READ operations)
-    slave1Connection = await mysql.createConnection({
-      host: process.env.DB_SLAVE1_HOST || "mysql-slave1",
-      user: process.env.DB_USER || "user",
-      password: process.env.DB_PASSWORD || "password",
-      database: process.env.DB_NAME || "loadbalancer_db",
-    });
-    console.log(`Server ${SERVER_ID}: Slave1 DB connected successfully`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `Server ${SERVER_ID}: Connecting to database (${attempt}/${maxRetries})`
+      );
 
-    // Connect to Slave2 DB (for READ operations)
-    slave2Connection = await mysql.createConnection({
-      host: process.env.DB_SLAVE2_HOST || "mysql-slave2",
-      user: process.env.DB_USER || "user",
-      password: process.env.DB_PASSWORD || "password",
-      database: process.env.DB_NAME || "loadbalancer_db",
-    });
-    console.log(`Server ${SERVER_ID}: Slave2 DB connected successfully`);
-  } catch (error) {
-    console.error(`Server ${SERVER_ID}: Database connection failed:`, error);
+      // Connect to Master DB (for WRITE operations)
+      masterConnection = await mysql.createConnection({
+        host: "mysql-master",
+        user: "user",
+        password: "password",
+        database: "loadbalancer_db",
+        connectTimeout: 10000,
+        acquireTimeout: 10000,
+        timeout: 10000,
+      });
+      console.log(`Server ${SERVER_ID}: Master DB connected successfully`);
+
+
+      // Test connections
+      await masterConnection.execute("SELECT 1");
+      console.log(`Server ${SERVER_ID}: Database connections test successful`);
+
+      return;
+    } catch (error) {
+      console.error(
+        `Server ${SERVER_ID}: Database connection attempt ${attempt} failed:`,
+        error.message
+      );
+
+      if (attempt < maxRetries) {
+        console.log(
+          `Server ${SERVER_ID}: Retrying in ${retryDelay / 1000} seconds...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      } else {
+        console.error(
+          `Server ${SERVER_ID}: All database connection attempts failed`
+        );
+        console.log(
+          `Server ${SERVER_ID}: Starting without database connection`
+        );
+      }
+    }
   }
-}
-
-// Function to get next slave for read operations (round-robin)
-function getNextSlaveConnection() {
-  const slaves = [slave1Connection, slave2Connection].filter((conn) => conn);
-  if (slaves.length === 0) {
-    throw new Error("No slave connections available");
-  }
-
-  const selectedSlave = slaves[currentSlaveIndex % slaves.length];
-  currentSlaveIndex++;
-  return selectedSlave;
 }
 
 // Health check endpoint
@@ -67,24 +70,29 @@ app.get("/health", (req, res) => {
     status: "healthy",
     server_id: SERVER_ID,
     master_db: masterConnection ? "connected" : "disconnected",
-    slave1_db: slave1Connection ? "connected" : "disconnected",
-    slave2_db: slave2Connection ? "connected" : "disconnected",
     timestamp: new Date().toISOString(),
   });
 });
 
-// Main endpoint that will be load balanced
+// Main endpoint
 app.get("/api/server-info", async (req, res) => {
   try {
     const clientIP = req.ip || req.connection.remoteAddress;
     const userAgent = req.get("User-Agent");
 
-    // Write to Master DB
+    // Write to database if available
     if (masterConnection) {
-      await masterConnection.execute(
-        "INSERT INTO requests (server_id, client_ip, user_agent) VALUES (?, ?, ?)",
-        [SERVER_ID, clientIP, userAgent]
-      );
+      try {
+        await masterConnection.execute(
+          "INSERT INTO requests (server_id, client_ip, user_agent) VALUES (?, ?, ?)",
+          [SERVER_ID, clientIP, userAgent]
+        );
+      } catch (dbError) {
+        console.warn(
+          `Server ${SERVER_ID}: Database write failed:`,
+          dbError.message
+        );
+      }
     }
 
     res.json({
@@ -92,9 +100,7 @@ app.get("/api/server-info", async (req, res) => {
       timestamp: new Date().toISOString(),
       message: `Request handled by Server ${SERVER_ID}`,
       client_ip: clientIP,
-      master_db_status: masterConnection ? "connected" : "disconnected",
-      slave1_db_status: slave1Connection ? "connected" : "disconnected",
-      slave2_db_status: slave2Connection ? "connected" : "disconnected",
+      database_status: masterConnection ? "connected" : "disconnected",
     });
   } catch (error) {
     console.error(`Server ${SERVER_ID}: Error:`, error);
@@ -105,15 +111,17 @@ app.get("/api/server-info", async (req, res) => {
   }
 });
 
-// Get request statistics (READ operation - use Slave DB)
+// Get statistics
 app.get("/api/stats", async (req, res) => {
   try {
-    const slaveConnection = getNextSlaveConnection();
-    if (!slaveConnection) {
-      return res.status(500).json({ error: "No slave database available" });
+    if (!masterConnection) {
+      return res.status(500).json({
+        error: "Database not connected",
+        server_id: SERVER_ID,
+      });
     }
 
-    const [rows] = await slaveConnection.execute(
+    const [rows] = await masterConnection.execute(
       "SELECT server_id, COUNT(*) as request_count FROM requests GROUP BY server_id"
     );
 
@@ -121,38 +129,9 @@ app.get("/api/stats", async (req, res) => {
       server_id: SERVER_ID,
       statistics: rows,
       total_requests: rows.reduce((sum, row) => sum + row.request_count, 0),
-      read_from: "slave",
     });
   } catch (error) {
     console.error(`Server ${SERVER_ID}: Error getting stats:`, error);
-    res.status(500).json({
-      error: "Internal server error",
-      server_id: SERVER_ID,
-    });
-  }
-});
-
-// Create new request (WRITE operation - use Master DB)
-app.post("/api/requests", async (req, res) => {
-  try {
-    if (!masterConnection) {
-      return res.status(500).json({ error: "Master database not connected" });
-    }
-
-    const { client_ip, user_agent } = req.body;
-    const [result] = await masterConnection.execute(
-      "INSERT INTO requests (server_id, client_ip, user_agent) VALUES (?, ?, ?)",
-      [SERVER_ID, client_ip || req.ip, user_agent || req.get("User-Agent")]
-    );
-
-    res.json({
-      success: true,
-      data: { id: result.insertId },
-      server_id: SERVER_ID,
-      written_to: "master",
-    });
-  } catch (error) {
-    console.error(`Server ${SERVER_ID}: Error creating request:`, error);
     res.status(500).json({
       error: "Database error",
       server_id: SERVER_ID,
@@ -160,15 +139,17 @@ app.post("/api/requests", async (req, res) => {
   }
 });
 
-// Get all requests (READ operation - use Slave DB)
+// Get all requests
 app.get("/api/requests", async (req, res) => {
   try {
-    const slaveConnection = getNextSlaveConnection();
-    if (!slaveConnection) {
-      return res.status(500).json({ error: "No slave database available" });
+    if (!masterConnection) {
+      return res.status(500).json({
+        error: "Database not connected",
+        server_id: SERVER_ID,
+      });
     }
 
-    const [rows] = await slaveConnection.execute(
+    const [rows] = await masterConnection.execute(
       "SELECT * FROM requests ORDER BY timestamp DESC LIMIT 10"
     );
 
@@ -176,7 +157,6 @@ app.get("/api/requests", async (req, res) => {
       success: true,
       data: rows,
       server_id: SERVER_ID,
-      read_from: "slave",
     });
   } catch (error) {
     console.error(`Server ${SERVER_ID}: Error getting requests:`, error);
@@ -190,7 +170,7 @@ app.get("/api/requests", async (req, res) => {
 // Start server
 app.listen(PORT, async () => {
   console.log(`Server ${SERVER_ID} is running on port ${PORT}`);
-  await connectDatabases();
+  await connectDatabase();
 });
 
 // Graceful shutdown
@@ -199,12 +179,5 @@ process.on("SIGTERM", async () => {
   if (masterConnection) {
     await masterConnection.end();
   }
-  if (slave1Connection) {
-    await slave1Connection.end();
-  }
-  if (slave2Connection) {
-    await slave2Connection.end();
-  }
   process.exit(0);
 });
-
