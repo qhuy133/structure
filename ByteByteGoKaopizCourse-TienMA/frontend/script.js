@@ -14,7 +14,8 @@ let serverEndpoints = [
     `${BASE_URL}/api/`,
     `${BASE_URL}/api/users`,
     `${BASE_URL}/api/products`,
-    `${BASE_URL}/api/requests-log`
+    `${BASE_URL}/api/requests-log`,
+    `${BASE_URL}/api/worker/status`
 ];
 
 // Initialize the dashboard
@@ -150,7 +151,8 @@ async function checkServerStatus() {
         { name: 'Main API', url: '/api/', icon: 'fas fa-home' },
         { name: 'Users API', url: '/api/users', icon: 'fas fa-users' },
         { name: 'Products API', url: '/api/products', icon: 'fas fa-box' },
-        { name: 'Requests Log', url: '/api/requests-log', icon: 'fas fa-list' }
+        { name: 'Requests Log', url: '/api/requests-log', icon: 'fas fa-list' },
+        { name: 'Worker Status', url: '/api/worker/status', icon: 'fas fa-cogs' }
     ];
     
     for (let i = 0; i < endpoints.length; i++) {
@@ -187,6 +189,14 @@ async function checkServerStatus() {
                     <div class="server-detail">
                         <strong>Written To:</strong><br>
                         ${result.data.written_to_master}
+                    </div>
+                `;
+            }
+            if (result.data.worker_status) {
+                dbInfo += `
+                    <div class="server-detail">
+                        <strong>Worker Status:</strong><br>
+                        ${result.data.worker_status}
                     </div>
                 `;
             }
@@ -577,6 +587,215 @@ async function testReplication() {
     }
     
     hideLoading();
+}
+
+// Test worker connection
+async function testWorker() {
+    showLoading();
+    addLogEntry('info', 'Testing worker connection...');
+    
+    const result = await makeApiRequest(`${BASE_URL}/api/worker/test`, {
+        method: 'POST'
+    });
+    
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (result.success) {
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>🔧 Worker Test</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Served by:</strong> ${result.data.served_by}<br>
+                <strong>Task ID:</strong> ${result.data.task_id}<br>
+                <strong>Task Status:</strong> ${result.data.task_status}<br>
+                <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                <strong>Message:</strong><br>
+                ${result.data.message}
+            </div>
+        `;
+        addLogEntry('success', 'Worker test task queued successfully');
+        
+        // Check task status after a delay
+        setTimeout(async () => {
+            await checkTaskStatus(result.data.task_id);
+        }, 2000);
+    } else {
+        dataDisplay.className = 'data-display';
+        dataDisplay.innerHTML = `
+            <div class="placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <p style="color: #e74c3c;">Worker test failed</p>
+                <small>${result.error}</small>
+            </div>
+        `;
+        addLogEntry('error', 'Worker test failed');
+    }
+    
+    hideLoading();
+}
+
+// Check worker status
+async function checkWorkerStatus() {
+    showLoading();
+    addLogEntry('info', 'Checking worker status...');
+    
+    const result = await makeApiRequest(`${BASE_URL}/api/worker/status`);
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (result.success) {
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>📊 Worker Status</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Served by:</strong> ${result.data.served_by}<br>
+                <strong>Worker Status:</strong> ${result.data.worker_status}<br>
+                <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                <strong>Active Workers:</strong><br>
+                ${JSON.stringify(result.data.active_workers, null, 2)}<br><br>
+                <strong>Registered Tasks:</strong><br>
+                ${JSON.stringify(result.data.registered_tasks, null, 2)}
+            </div>
+        `;
+        addLogEntry('success', 'Worker status checked successfully');
+    } else {
+        dataDisplay.className = 'data-display';
+        dataDisplay.innerHTML = `
+            <div class="placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <p style="color: #e74c3c;">Failed to check worker status</p>
+                <small>${result.error}</small>
+            </div>
+        `;
+        addLogEntry('error', 'Failed to check worker status');
+    }
+    
+    hideLoading();
+}
+
+// Create product for user
+async function createProductForUser() {
+    showLoading();
+    addLogEntry('info', 'Creating product for user...');
+    
+    // First, get list of users
+    const usersResult = await makeApiRequest(`${BASE_URL}/api/users`);
+    
+    if (!usersResult.success || !usersResult.data.users.length) {
+        addLogEntry('error', 'No users found. Please create a user first.');
+        hideLoading();
+        return;
+    }
+    
+    // Show user selection dialog
+    const userList = usersResult.data.users.map((user, index) => 
+        `${index + 1}. ${user.name} (${user.email})`
+    ).join('\n');
+    
+    const userIndex = prompt(`Select a user to create product for:\n\n${userList}\n\nEnter user number (1-${usersResult.data.users.length}):`);
+    
+    if (!userIndex || isNaN(userIndex) || userIndex < 1 || userIndex > usersResult.data.users.length) {
+        addLogEntry('info', 'Product creation cancelled');
+        hideLoading();
+        return;
+    }
+    
+    const selectedUser = usersResult.data.users[userIndex - 1];
+    
+    // Send task to worker
+    const result = await makeApiRequest(`${BASE_URL}/api/users/${selectedUser.id}/create-product`, {
+        method: 'POST'
+    });
+    
+    const dataDisplay = document.getElementById('dataDisplay');
+    
+    if (result.success) {
+        dataDisplay.className = 'data-display has-content';
+        dataDisplay.innerHTML = `
+            <div class="data-content fade-in">
+                <h3>🎯 Product Creation Task</h3>
+                <hr style="margin: 10px 0;">
+                <strong>Served by:</strong> ${result.data.served_by}<br>
+                <strong>User ID:</strong> ${result.data.user_id}<br>
+                <strong>User Name:</strong> ${result.data.user_name}<br>
+                <strong>Task ID:</strong> ${result.data.task_id}<br>
+                <strong>Task Status:</strong> ${result.data.task_status}<br>
+                <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                <strong>Message:</strong><br>
+                ${result.data.message}
+            </div>
+        `;
+        addLogEntry('success', `Product creation task queued for user ${selectedUser.name}`);
+        
+        // Check task status after a delay
+        setTimeout(async () => {
+            await checkTaskStatus(result.data.task_id);
+        }, 3000);
+    } else {
+        dataDisplay.className = 'data-display';
+        dataDisplay.innerHTML = `
+            <div class="placeholder">
+                <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                <p style="color: #e74c3c;">Failed to queue product creation</p>
+                <small>${result.error}</small>
+            </div>
+        `;
+        addLogEntry('error', 'Failed to queue product creation');
+    }
+    
+    hideLoading();
+}
+
+// Check task status
+async function checkTaskStatus(taskId) {
+    addLogEntry('info', `Checking task status for: ${taskId}`);
+    
+    const result = await makeApiRequest(`${BASE_URL}/api/tasks/${taskId}`);
+    
+    if (result.success) {
+        const dataDisplay = document.getElementById('dataDisplay');
+        
+        if (result.data.state === 'SUCCESS') {
+            dataDisplay.className = 'data-display has-content';
+            dataDisplay.innerHTML = `
+                <div class="data-content fade-in">
+                    <h3>✅ Task Completed Successfully</h3>
+                    <hr style="margin: 10px 0;">
+                    <strong>Task ID:</strong> ${result.data.task_id}<br>
+                    <strong>State:</strong> ${result.data.state}<br>
+                    <strong>Response Time:</strong> ${result.responseTime}ms<br><br>
+                    <strong>Task Result:</strong><br>
+                    ${JSON.stringify(result.data.result, null, 2)}
+                </div>
+            `;
+            addLogEntry('success', `Task ${taskId} completed successfully`);
+        } else if (result.data.state === 'FAILURE') {
+            dataDisplay.className = 'data-display';
+            dataDisplay.innerHTML = `
+                <div class="placeholder">
+                    <i class="fas fa-exclamation-triangle" style="color: #e74c3c;"></i>
+                    <p style="color: #e74c3c;">Task Failed</p>
+                    <strong>Task ID:</strong> ${result.data.task_id}<br>
+                    <strong>State:</strong> ${result.data.state}<br>
+                    <strong>Error:</strong> ${result.data.error}
+                </div>
+            `;
+            addLogEntry('error', `Task ${taskId} failed: ${result.data.error}`);
+        } else {
+            // Task still pending or processing
+            addLogEntry('info', `Task ${taskId} is ${result.data.state.toLowerCase()}`);
+            
+            // Check again after delay if still pending
+            if (result.data.state === 'PENDING') {
+                setTimeout(async () => {
+                    await checkTaskStatus(taskId);
+                }, 2000);
+            }
+        }
+    } else {
+        addLogEntry('error', `Failed to check task status: ${result.error}`);
+    }
 }
 
 // Auto-refresh server status every 30 seconds

@@ -1,15 +1,20 @@
-# Load Balancer Demo with MySQL Master-Slave Replication
+# Load Balancer Demo with MySQL Master-Slave Replication & Celery Worker
 
 ## 🚀 Quy trình triển khai đơn giản
 
 ### 1. **Khởi động hệ thống (One Command)**
 ```bash
-./start-with-database.sh
+# Khởi động toàn bộ hệ thống (Load Balancer + MySQL Replication + Celery Worker)
+./start.sh
 ```
 
 ### 2. **Test hệ thống**
 ```bash
-./test.sh
+# Test Worker system
+./test-worker.sh
+
+# Test MySQL replication
+./test-replication.sh
 ```
 
 ### 3. **Dừng hệ thống**
@@ -19,6 +24,7 @@ docker compose down -v
 
 ## 🏗️ Kiến trúc hệ thống
 
+### Kiến trúc đầy đủ (Load Balancer + Database Replication + Celery Worker)
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │  Load Balancer  │    │  FastAPI Apps   │
@@ -42,32 +48,36 @@ docker compose down -v
                         │                   │  Port: 3308     │  │
                         │                   └─────────────────┘  │
                         └─────────────────────────────────────────┘
+                                        ▲
+                                        │
+                        ┌─────────────────────────────────────────┐
+                        │           Worker System                │
+                        │                                         │
+                        │  ┌─────────────┐   ┌─────────────────┐  │
+                        │  │    Redis    │   │ Celery Worker   │  │
+                        │  │ (Message    │◀──│  (Background    │  │
+                        │  │  Broker)    │   │   Tasks)        │  │
+                        │  │ Port: 6379  │   │                 │  │
+                        │  └─────────────┘   └─────────────────┘  │
+                        └─────────────────────────────────────────┘
 ```
 
-## 📊 Các endpoints API
+## 📜 Scripts Overview
 
-| Endpoint | Method | Mô tả | Database |
-|----------|---------|-------|----------|
-| `/health` | GET | Health check | Both |
-| `/api/` | GET | Root endpoint | Master |
-| `/api/users` | GET | Lấy danh sách users | **Slave** |
-| `/api/users` | POST | Tạo user mới | **Master** |
-| `/api/products` | GET | Lấy danh sách products | **Slave** |
-| `/api/requests-log` | GET | Log các API requests | **Slave** |
-| `/api/slow` | GET | Endpoint chậm (test) | Master |
+| Script | Mô tả | Khi nào sử dụng |
+|--------|-------|-----------------|
+| `start.sh` | **Script chính** - Khởi động toàn bộ hệ thống (Load Balancer + MySQL Replication + Celery Worker) | **Luôn sử dụng** - Khởi động hệ thống đầy đủ |
+| `test-worker.sh` | Test worker system và async tasks | Sau khi khởi động hệ thống |
+| `test-replication.sh` | Test MySQL replication | Khi cần kiểm tra replication |
+| `setup-replication.sh` | Setup MySQL replication (tự động chạy trong start script) | Chỉ chạy thủ công khi cần debug replication |
 
-## 🔄 Read/Write Splitting
-
-- **📖 Read Operations**: Tự động route đến MySQL slaves (load balanced)
-- **✍️ Write Operations**: Tự động route đến MySQL master
-- **⚡ Automatic Failover**: Nếu slave down, fallback sang slave khác
-
-## 📁 Cấu trúc project (đã tối ưu)
+## 📁 Cấu trúc project
 
 ```
 ByteByteGoKaopizCourse-TienMA/
 ├── 📁 app/                          # FastAPI application
 │   ├── main.py                      # Main app với database integration
+│   ├── celery_app.py                # Celery worker configuration
 │   ├── requirements.txt             # Python dependencies
 │   └── Dockerfile                   # Docker config cho app
 ├── 📁 frontend/                     # Frontend dashboard
@@ -86,11 +96,11 @@ ByteByteGoKaopizCourse-TienMA/
 │   │   └── my.cnf                   # Slave2 MySQL config
 │   └── README.md                    # Database documentation
 ├── 🐳 docker-compose.yml            # Orchestration file
-├── 🗄️ init.sql                      # Master database initialization
-├── 🗄️ init-slave.sql                # Slave database initialization
-├── 🚀 start-with-database.sh        # Main deployment script
+├── 🗄️ init-schema.sql               # Database schema initialization
+├── 🗄️ insert-sample-data.sql        # Sample data for testing
+├── 🚀 start.sh                       # Main deployment script (ALL-IN-ONE)
 ├── ⚙️ setup-replication.sh          # MySQL replication setup
-├── 🧪 test.sh                       # Simple testing script
+├── 🧪 test-worker.sh                # Worker system testing
 ├── 🧪 test-replication.sh           # Replication testing
 └── 📖 README.md                     # This file
 ```
@@ -103,11 +113,14 @@ ByteByteGoKaopizCourse-TienMA/
 docker compose up --build
 
 # Xem logs
-docker compose logs fastapi_server_1
-docker compose logs mysql-master
+docker compose logs -f                    # Xem tất cả logs
+docker compose logs fastapi_server_1      # Xem logs FastAPI
+docker compose logs mysql-master          # Xem logs MySQL master
+docker compose logs celery_worker         # Xem logs Celery worker
 
 # Restart service cụ thể
 docker compose restart fastapi_server_1
+docker compose restart celery_worker
 ```
 
 ### Database Management:
@@ -128,13 +141,20 @@ docker exec mysql_slave1 mysql -u root -prootpassword -e "SHOW SLAVE STATUS\G"
 curl http://localhost:8090/health
 curl http://localhost:8090/api/users
 curl http://localhost:8090/api/products
+curl http://localhost:8090/api/worker/status
 
 # Kiểm tra containers
 docker compose ps
 
+# Test worker system
+./test-worker.sh
+
+# Test replication
+./test-replication.sh
+
 # Clean restart
 docker compose down -v
-./start-with-database.sh
+./start.sh
 ```
 
 ## 🎯 Features chính
@@ -150,34 +170,80 @@ docker compose down -v
 - GTID-based replication
 - Data consistency
 
-### ✅ **Monitoring**
-- Real-time dashboard
+### ✅ **Celery Worker System**
+- Asynchronous task processing
+- Redis message broker
+- Background product creation
+- Task status tracking
+
+### ✅ **Frontend Dashboard**
+- Real-time system monitoring
+- Interactive API testing
+- Worker system controls
 - Request logging
-- Server health monitoring
-- Database status tracking
 
-### ✅ **Easy Deployment**
-- One-command setup
-- Automated replication setup
-- Self-healing data sync
-- Clean restart capability
+## 🔧 API Endpoints
 
-## 🔧 Configuration
+### Core APIs:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/` | Root endpoint |
+| GET | `/api/users` | Get users (reads from slave) |
+| POST | `/api/users` | Create user (writes to master) |
+| GET | `/api/products` | Get products (reads from slave) |
+| GET | `/api/requests-log` | Get API requests log |
+| GET | `/api/slow` | Slow endpoint for testing |
 
-### Database Credentials:
+### Worker APIs:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/worker/status` | Check worker status |
+| POST | `/api/worker/test` | Test worker connection |
+| POST | `/api/users/{id}/create-product` | Create product for user (async) |
+| GET | `/api/tasks/{task_id}` | Check task status |
+
+## ⚙️ Celery Worker System
+
+### Features:
+- **Asynchronous Processing**: Background task execution
+- **Redis Integration**: Reliable message broker
+- **Product Creation**: Auto-generate products for users
+- **Task Tracking**: Monitor task status and results
+- **Error Handling**: Retry mechanism with exponential backoff
+
+### Flow:
+1. User creates account via API
+2. System queues product creation task
+3. Celery worker processes task asynchronously
+4. Product is created with user-specific details
+5. Task status can be tracked via API
+
+### Usage:
+```bash
+# Test worker system
+./test-worker.sh
+
+# Check worker status via API
+curl http://localhost:8090/api/worker/status
+
+# Create user and trigger product creation
+curl -X POST http://localhost:8090/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "email": "john@example.com"}'
+
+# Then create product for user (replace {user_id})
+curl -X POST http://localhost:8090/api/users/1/create-product
 ```
-Root Password: rootpassword
-Database: loadbalancer_db
-User: user / password
-Replication User: replicator / replicator_password
-```
 
-### Ports:
+## 🌐 Access Points
+
 ```
 Frontend: http://localhost:8090
 MySQL Master: localhost:3306
 MySQL Slave1: localhost:3307
 MySQL Slave2: localhost:3308
+Redis: localhost:6379
 ```
 
 ## 🚨 Troubleshooting
@@ -189,7 +255,7 @@ docker compose ps
 
 # Restart hệ thống
 docker compose down -v
-./start-with-database.sh
+./start.sh
 ```
 
 ### Database Connection Issues:
@@ -201,24 +267,62 @@ docker exec mysql_master mysql -u user -ppassword -e "SELECT 1"
 ./setup-replication.sh
 ```
 
+### Worker System Issues:
+```bash
+# Kiểm tra worker status
+curl http://localhost:8090/api/worker/status
+
+# Test worker
+./test-worker.sh
+
+# Restart worker
+docker compose restart celery_worker
+```
+
 ### Frontend không load:
 ```bash
 # Kiểm tra nginx logs
 docker compose logs nginx
 
-# Test direct API
-curl http://localhost:8090/api/
+# Restart nginx
+docker compose restart nginx
 ```
+
+## 🎉 Quick Start Guide
+
+1. **Clone và setup:**
+   ```bash
+   git clone <repository>
+   cd ByteByteGoKaopizCourse-TienMA
+   ```
+
+2. **Khởi động hệ thống:**
+   ```bash
+   ./start.sh
+   ```
+
+3. **Mở browser:**
+   ```
+   http://localhost:8090
+   ```
+
+4. **Test features:**
+   - Click "Test Worker" để test worker system
+   - Click "Create User" để tạo user mới
+   - Click "Create Product for User" để test async product creation
+   - Click "Worker Status" để kiểm tra worker health
+
+5. **Dừng hệ thống:**
+   ```bash
+   docker compose down -v
+   ```
+
+## 📚 Additional Resources
+
+- [WORKER_README.md](./WORKER_README.md) - Chi tiết về Celery Worker System
+- [DEPLOYMENT.md](./DEPLOYMENT.md) - Hướng dẫn deployment
+- [mysql/README.md](./mysql/README.md) - Database configuration details
 
 ---
 
-## 🎯 Quick Start Checklist
-
-- [ ] Clone repository
-- [ ] Run `./start-with-database.sh`
-- [ ] Wait 30-60 seconds for setup completion
-- [ ] Run `./test.sh` to verify
-- [ ] Open http://localhost:8090 in browser
-- [ ] Test các features trên dashboard
-
-**🎉 Enjoy your Load Balancer with MySQL Replication!**
+**🎯 Mục tiêu:** Demo Load Balancer với MySQL Master-Slave Replication và Celery Worker System cho việc xử lý background tasks.

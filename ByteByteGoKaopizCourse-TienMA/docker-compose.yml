@@ -99,12 +99,17 @@ services:
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=loadbalancer_db
+      # Redis connection
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     expose:
       - "8000"
     depends_on:
       - mysql-master
       - mysql-slave1
       - mysql-slave2
+      - redis
     networks:
       - load_balancer_network
 
@@ -121,12 +126,17 @@ services:
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=loadbalancer_db
+      # Redis connection
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     expose:
       - "8000"
     depends_on:
       - mysql-master
       - mysql-slave1
       - mysql-slave2
+      - redis
     networks:
       - load_balancer_network
 
@@ -143,12 +153,52 @@ services:
       - DB_USER=user
       - DB_PASSWORD=password
       - DB_NAME=loadbalancer_db
+      # Redis connection
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     expose:
       - "8000"
     depends_on:
       - mysql-master
       - mysql-slave1
       - mysql-slave2
+      - redis
+    networks:
+      - load_balancer_network
+
+  # Redis for Celery message broker
+  redis:
+    image: redis:7-alpine
+    container_name: redis_broker
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - load_balancer_network
+
+  # Celery Worker
+  celery_worker:
+    build: ./app
+    command: celery -A celery_app worker --loglevel=info
+    environment:
+      # Database connections
+      - DB_MASTER_HOST=mysql-master
+      - DB_SLAVE1_HOST=mysql-slave1
+      - DB_SLAVE2_HOST=mysql-slave2
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=loadbalancer_db
+      # Redis connection
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    depends_on:
+      - mysql-master
+      - mysql-slave1
+      - mysql-slave2
+      - redis
     networks:
       - load_balancer_network
 
@@ -156,6 +206,7 @@ volumes:
   mysql_master_data:
   mysql_slave1_data:
   mysql_slave2_data:
+  redis_data:
 
 networks:
   load_balancer_network:

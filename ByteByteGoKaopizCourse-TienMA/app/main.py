@@ -7,6 +7,13 @@ import pymysql
 import random
 from datetime import datetime
 from typing import List, Dict, Any
+try:
+    from celery_app import celery_app, create_product_from_user, test_worker_connection
+except ImportError:
+    # Fallback for when celery_app is not available
+    celery_app = None
+    create_product_from_user = None
+    test_worker_connection = None
 
 app = FastAPI(title="Load Balancer Demo API with MySQL")
 
@@ -180,6 +187,12 @@ async def create_user(user_data: dict):
         
         query = "INSERT INTO users (name, email) VALUES (%s, %s)"
         user_id = execute_write_query(query, (name, email))
+
+        # Gửi task vào Celery queue
+        if not create_product_from_user:
+            raise HTTPException(status_code=503, detail="Worker system not available")
+        
+        task = create_product_from_user.delay(name, user_id)
         
         # Log this request
         log_query = """
@@ -195,6 +208,8 @@ async def create_user(user_data: dict):
             "email": email,
             "served_by": SERVER_ID,
             "written_to_master": MASTER_HOST,
+            "task_id": task.id,
+            "task_status": "PENDING",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -278,6 +293,163 @@ async def slow_endpoint():
         "processing_time_ms": processing_time,
         "written_to_master": MASTER_HOST
     }
+
+@app.post("/api/users/{user_id}/create-product")
+async def create_product_for_user(user_id: int):
+    """
+    Gửi message vào queue để worker tạo sản phẩm cho user
+    """
+    if not create_product_from_user:
+        raise HTTPException(status_code=503, detail="Worker system not available")
+    
+    try:
+        # Lấy thông tin user từ database
+        query = "SELECT id, name, email FROM users WHERE id = %s"
+        users, slave_host = execute_read_query(query, (user_id,))
+        
+        if not users:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user = users[0]
+        user_name = user['name']
+        
+        # Gửi task vào Celery queue
+        task = create_product_from_user.delay(user_name, user_id)
+        
+        # Log this request to master
+        log_query = """
+        INSERT INTO requests (server_id, endpoint, method, client_ip, user_agent, response_time_ms)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        execute_write_query(log_query, (SERVER_ID, f"/api/users/{user_id}/create-product", "POST", "unknown", "API call", 50))
+        
+        return {
+            "message": f"Product creation task queued for user {user_name}",
+            "user_id": user_id,
+            "user_name": user_name,
+            "task_id": task.id,
+            "task_status": "PENDING",
+            "served_by": SERVER_ID,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to queue product creation: {str(e)}")
+
+@app.get("/api/tasks/{task_id}")
+async def get_task_status(task_id: str):
+    """
+    Kiểm tra trạng thái của task
+    """
+    if not celery_app:
+        raise HTTPException(status_code=503, detail="Worker system not available")
+    
+    try:
+        task = celery_app.AsyncResult(task_id)
+        
+        if task.state == 'PENDING':
+            response = {
+                'task_id': task_id,
+                'state': task.state,
+                'status': 'Task is waiting to be processed'
+            }
+        elif task.state == 'SUCCESS':
+            response = {
+                'task_id': task_id,
+                'state': task.state,
+                'result': task.result
+            }
+        elif task.state == 'FAILURE':
+            response = {
+                'task_id': task_id,
+                'state': task.state,
+                'error': str(task.info)
+            }
+        else:
+            response = {
+                'task_id': task_id,
+                'state': task.state,
+                'status': 'Task is being processed'
+            }
+        
+        return response
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get task status: {str(e)}")
+
+@app.post("/api/worker/test")
+async def test_worker():
+    """
+    Test worker connection
+    """
+    if not test_worker_connection:
+        raise HTTPException(status_code=503, detail="Worker system not available")
+    
+    try:
+        # Gửi test task vào queue
+        task = test_worker_connection.delay()
+        
+        # Log this request to master
+        log_query = """
+        INSERT INTO requests (server_id, endpoint, method, client_ip, user_agent, response_time_ms)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        execute_write_query(log_query, (SERVER_ID, "/api/worker/test", "POST", "unknown", "API call", 30))
+        
+        return {
+            "message": "Worker test task queued",
+            "task_id": task.id,
+            "task_status": "PENDING",
+            "served_by": SERVER_ID,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to test worker: {str(e)}")
+
+@app.get("/api/worker/status")
+async def get_worker_status():
+    """
+    Kiểm tra trạng thái worker và Redis connection
+    """
+    if not celery_app:
+        return {
+            "worker_status": "not_available",
+            "error": "Worker system not available",
+            "served_by": SERVER_ID,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    try:
+        # Test Redis connection
+        inspect = celery_app.control.inspect()
+        
+        # Get active workers
+        active_workers = inspect.active()
+        registered_tasks = inspect.registered()
+        
+        # Log this request to master
+        log_query = """
+        INSERT INTO requests (server_id, endpoint, method, client_ip, user_agent, response_time_ms)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        execute_write_query(log_query, (SERVER_ID, "/api/worker/status", "GET", "unknown", "API call", 40))
+        
+        return {
+            "worker_status": "connected" if active_workers else "no_workers",
+            "active_workers": active_workers,
+            "registered_tasks": registered_tasks,
+            "served_by": SERVER_ID,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "worker_status": "error",
+            "error": str(e),
+            "served_by": SERVER_ID,
+            "timestamp": datetime.now().isoformat()
+        }
 
 if __name__ == "__main__":
     import uvicorn

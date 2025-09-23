@@ -266,7 +266,7 @@ docker exec mysql_slave1 mysql -u root -prootpassword \
 ### 1. **Automatic Setup Process:**
 ```bash
 # 1. Start containers
-docker-compose up -d
+docker compose up -d
 
 # 2. Wait for MySQL services
 # 3. Create replication user on master

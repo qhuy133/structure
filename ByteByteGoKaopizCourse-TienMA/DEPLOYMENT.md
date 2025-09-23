@@ -3,7 +3,7 @@
 ## 📋 **Scripts đã được tối ưu (chỉ còn 4 files cần thiết):**
 
 ### 🟢 **Scripts chính:**
-1. **`start-with-database.sh`** - Main deployment script (ALL-IN-ONE)
+1. **`start.sh`** - Main deployment script (ALL-IN-ONE)
 2. **`test.sh`** - Simple testing script
 3. **`setup-replication.sh`** - MySQL replication setup (auto-called)
 4. **`test-replication.sh`** - Advanced replication testing
@@ -21,7 +21,7 @@
 
 ### **Bước 1: Khởi động (1 lệnh duy nhất)**
 ```bash
-./start-with-database.sh
+./start.sh
 ```
 **⏱️ Thời gian:** 60-90 giây
 
@@ -70,7 +70,7 @@ ByteByteGoKaopizCourse-TienMA/
 ├── 🐳 docker-compose.yml            # Orchestration
 ├── 🗄️ init.sql                      # Master DB init
 ├── 🗄️ init-slave.sql                # Slave DB init
-├── 🚀 start-with-database.sh        # 🎯 MAIN DEPLOYMENT
+├── 🚀 start.sh                       # 🎯 MAIN DEPLOYMENT
 ├── ⚙️ setup-replication.sh          # Auto MySQL setup
 ├── 🧪 test.sh                       # 🎯 SIMPLE TESTING
 ├── 🧪 test-replication.sh           # Advanced testing
@@ -85,7 +85,7 @@ ByteByteGoKaopizCourse-TienMA/
 ### **🔧 Development:**
 ```bash
 # Start development
-./start-with-database.sh
+./start.sh
 
 # Make code changes
 # ... edit files ...
@@ -101,7 +101,7 @@ docker compose up --build
 ```bash
 # Clean test from scratch
 docker compose down -v
-./start-with-database.sh
+./start.sh
 ./test.sh
 ```
 
@@ -125,7 +125,7 @@ docker compose logs mysql-master
 
 # Complete restart
 docker compose down -v
-./start-with-database.sh
+./start.sh
 ```
 
 ---
@@ -152,10 +152,10 @@ docker compose down -v
 
 ```bash
 # Complete setup
-./start-with-database.sh && ./test.sh
+./start.sh && ./test.sh
 
 # Clean restart
-docker compose down -v && ./start-with-database.sh
+docker compose down -v && ./start.sh
 
 # Development cycle
 docker compose up --build && ./test.sh
